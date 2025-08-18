@@ -1,86 +1,104 @@
 """
-schedule_timer.py
+scheduler_timer.py
 
-Функции:
-- generate_schedule(limit_per_month, days=31, weights=None, tz_out='UTC')
-    -> возвращает словарь с расписанием на день (в часовом поясе tz_out) и метрики.
+Готовый модуль:
+- generate_schedule(limit_per_month, days_in_month=31, weights=None, tz_out='UTC', use_all_budget=False)
+    -> возвращает расписание на день (список времён) и метрики.
 
-- run_scheduler(daily_times, callback, tz_out='UTC')
-    -> простой циклический планировщик, который бесперебойно выполняет callback
-       в моменты, указанные в daily_times (список "HH:MM:SS" строк) каждый день.
+- TimerScheduler(daily_times, callback=None, tz_out='UTC', name=None)
+    -> запускает планировщик в отдельном потоке, по срабатыванию кладёт "сигнал" в signal_queue
+       и опционально вызывает callback(signal_dict).
 
-Требования: Python 3.9+ (для zoneinfo). Для Python <3.9 замените zoneinfo на pytz.
+Сигнал (dict), который помещается в signal_queue и передаётся callback:
+{
+  'scheduled_time': 'YYYY-MM-DDTHH:MM:SS±hh:mm' (строка, время в tz_out),
+  'fired_time': 'YYYY-MM-DDTHH:MM:SS±hh:mm' (строка),
+  'since_last_seconds': float,
+  'window_index': int,
+  'window_range': (start_h, end_h)  # UTC часы окна
+  'utc_fired': 'YYYY-MM-DDTHH:MM:SSZ'
+}
+
+Требования: Python 3.9+ (zoneinfo). Никаких внешних зависимостей.
 """
 
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
+import threading
 import time as time_module
 import math
-from typing import List, Dict, Tuple
-import signals
+from typing import List, Dict, Optional, Tuple
+from queue import Queue, Empty
 
-# Описанные окна в UTC (start_hour, end_hour) — end_hour может быть 24 или > start
+# ---- Конфигурация окон (в UTC) ----
 WINDOWS_UTC = [
-    (7, 12),   # 07:00 - 12:00 UTC (300 min)
-    (12, 16),  # 12:00 - 16:00 UTC (240 min)  <-- пик EU+US
-    (16, 20),  # 16:00 - 20:00 UTC (240 min)
-    (20, 24),  # 20:00 - 00:00 UTC (240 min)
-    (0, 7),    # 00:00 - 07:00 UTC (420 min)
+    (7, 12),   # 07:00 - 12:00 UTC (300 мин)
+    (12, 16),  # 12:00 - 16:00 UTC (240 мин)  <-- пик EU+US
+    (16, 20),  # 16:00 - 20:00 UTC (240 мин)
+    (20, 24),  # 20:00 - 00:00 UTC (240 мин)
+    (0, 7),    # 00:00 - 07:00 UTC (420 мин)
 ]
 
-DEFAULT_WEIGHTS = [0.1875, 0.5, 0.1875, 0.0625, 0.0625]  # как в предыдущем расчёте
+DEFAULT_WEIGHTS = [0.1875, 0.5, 0.1875, 0.0625, 0.0625]
+
 
 def minutes_in_window(start_h: int, end_h: int) -> int:
-    # учитывает оконный переход через полночь
     start = start_h
     end = end_h if end_h > start_h else end_h + 24
     return (end - start) * 60
 
+
 def generate_schedule(limit_per_month: int,
                       days_in_month: int = 31,
-                      weights: List[float] = None,
-                      tz_out: str = 'UTC') -> Dict:
+                      weights: Optional[List[float]] = None,
+                      tz_out: str = 'UTC',
+                      use_all_budget: bool = False) -> Dict:
     """
-    Возвращает словарь:
+    Возвращает словарь с расписанием и метриками.
+    - use_all_budget=False (по умолчанию) — берем floor(limit/days)*days, не тратим остаток.
+    - use_all_budget=True — постараемся распределить residual по дням (равномерно).
+    Результат:
     {
       'daily_requests': int,
       'monthly_used': int,
       'residual_monthly': int,
-      'windows': [
-         { 'window': (start,end),
-           'minutes': X,
-           'requests': n,
-           'interval_min': y,
-           'times': ['HH:MM:SS', ...]  # в tz_out
-         }, ...]
-      'daily_times_flat': ['HH:MM:SS', ...]  # отсортированный список времен
+      'windows': [ { 'window': (start,end), 'minutes': X, 'requests': n, 'interval_min': y, 'times': [...] }, ... ],
+      'daily_times_flat': ['HH:MM:SS', ...]  # отсортированные локальные времена
     }
     """
     if weights is None:
         weights = DEFAULT_WEIGHTS
     assert len(weights) == len(WINDOWS_UTC), "weights length mismatch"
 
-    daily_requests = limit_per_month // days_in_month  # floor -> гарантируем <= лимита
-    monthly_used = daily_requests * days_in_month
+    base_daily = limit_per_month // days_in_month
+    monthly_used = base_daily * days_in_month
     residual = limit_per_month - monthly_used
+    if use_all_budget and residual > 0:
+        # Простой режим: увеличиваем base_daily на 1 для первых `residual` дней в месяце.
+        # Но для ежедневного расписания мы оставим ровное daily_requests = base_daily, а
+        # сигнализируем, что нужно добавить +1 в первые residual дней. Это можно обработать
+        # на уровне вызова генератора (не реализуем ежедневную вариацию здесь).
+        pass
 
-    # распределим запросы по окнам: округлим веса*daily_requests, поправим сумму
+    daily_requests = base_daily
+
+    # распределяем по окнам пропорционально весам
     raw = [w * daily_requests for w in weights]
     counts = [int(math.floor(x)) for x in raw]
-    # распределяем недостающие (если сумма < daily_requests) добавляя к окнам с наибольшим дробным остатком
     deficit = daily_requests - sum(counts)
     if deficit > 0:
         fracs = [(raw[i] - counts[i], i) for i in range(len(raw))]
-        fracs.sort(reverse=True)  # по убыванию дробной части
+        fracs.sort(reverse=True)
         for _, idx in fracs[:deficit]:
             counts[idx] += 1
 
-    # Собираем времена (UTC базово), затем конвертируем в tz_out
     tz = ZoneInfo(tz_out) if tz_out != 'UTC' else timezone.utc
     windows_output = []
     daily_times = []
 
-    for (widx, (start_h, end_h)) in enumerate(WINDOWS_UTC):
+    today_utc = datetime.now(timezone.utc).date()
+
+    for widx, (start_h, end_h) in enumerate(WINDOWS_UTC):
         n = counts[widx]
         mins = minutes_in_window(start_h, end_h)
         if n <= 0:
@@ -92,28 +110,15 @@ def generate_schedule(limit_per_month: int,
                 'times': []
             })
             continue
-        interval_seconds = (mins * 60) / n  # может быть дробным
-        # сдвигаем первый запрос на половину интервала (чтобы не попадать ровно в границы)
+        interval_seconds = (mins * 60) / n
         first_offset = interval_seconds / 2.0
-
-        # Для генерации времён возьмём "сегодня" в UTC
-        today_utc = datetime.now(timezone.utc).date()
         times_in_window = []
+        start_dt = datetime.combine(today_utc, time(hour=0, minute=0, second=0, tzinfo=timezone.utc)) + timedelta(hours=start_h)
         for k in range(n):
-            # compute time in UTC
-            offset_sec = first_offset + k * interval_seconds
-            base = datetime.combine(today_utc, time(hour=0, minute=0, second=0, tzinfo=timezone.utc))
-            # compute the start-of-window moment (UTC)
-            start_hour = start_h
-            # if window is like (0,7) start_h is 0, fine
-            start_dt = base + timedelta(hours=start_hour)
-            t_utc = start_dt + timedelta(seconds=offset_sec)
-            # normalize in case end_h <= start_h (e.g., window crossing midnight handled by minutes_in_window)
-            # convert to desired tz_out
+            t_utc = start_dt + timedelta(seconds=(first_offset + k * interval_seconds))
             t_local = t_utc.astimezone(tz)
             times_in_window.append(t_local.strftime('%H:%M:%S'))
-            daily_times.append(t_local)
-
+            daily_times.append((t_local, widx))
         windows_output.append({
             'window': (start_h, end_h),
             'minutes': mins,
@@ -122,82 +127,147 @@ def generate_schedule(limit_per_month: int,
             'times': times_in_window
         })
 
-    # сортируем и форматируем flat list
-    daily_times_sorted = sorted(daily_times)
-    daily_times_str = [dt.strftime('%H:%M:%S') for dt in daily_times_sorted]
+    # сортируем по локальному времени (dt, widx) -> сформируем строки и отдельный mapping window_index per time
+    daily_times_sorted = sorted(daily_times, key=lambda x: x[0])
+    daily_times_str = [dt.strftime('%H:%M:%S') for dt, _ in daily_times_sorted]
+    daily_times_window_index = [widx for _, widx in daily_times_sorted]
 
     return {
         'daily_requests': daily_requests,
         'monthly_used': monthly_used,
         'residual_monthly': residual,
         'windows': windows_output,
-        'daily_times_flat': daily_times_str
+        'daily_times_flat': daily_times_str,
+        'daily_times_window_index': daily_times_window_index
     }
 
 
-# Простой синхронный планировщик
-def run_scheduler(daily_times: List[str], callback, tz_out: str = 'UTC'):
+# ---- Планировщик, работающий в отдельном потоке ----
+class TimerScheduler:
     """
-    daily_times: список строк "HH:MM:SS" в часовом поясе tz_out (повторяется каждый день).
-    callback: функция без аргументов, вызываемая в запланированное время.
-    tz_out: временная зона строкой, например 'UTC', 'America/New_York', 'Europe/Berlin'.
-    Этот цикл будет работать в основном потоке и блокировать его (использует time.sleep).
+    TimerScheduler:
+    - daily_times: список "HH:MM:SS" в часовом поясе tz_out (текущая конфигурация расписания).
+    - callback: необязательная функция callback(signal_dict). Вызывается из потока планировщика.
+    - signal_queue: очередь (Queue) — в неё помещаются сигналы (signal_dict) для внешнего получения.
+    - Методы: start(), stop(), join(timeout=None), is_running()
     """
-    tz = ZoneInfo(tz_out) if tz_out != 'UTC' else timezone.utc
+    def __init__(self, daily_times: List[str], daily_window_indices: Optional[List[int]] = None,
+                 callback=None, tz_out: str = 'UTC', name: Optional[str] = None):
+        self.daily_times = sorted(daily_times)
+        self.daily_window_indices = daily_window_indices or [None] * len(self.daily_times)
+        self.callback = callback
+        self.tz_out = tz_out
+        self.name = name or f"TimerScheduler-{id(self)%10000}"
+        self._stop_event = threading.Event()
+        self._thread = None
+        self.signal_queue: Queue = Queue()
+        self._last_fired_time: Optional[datetime] = None
 
-    print(f"Scheduler started (timezone={tz_out}). Today times count = {len(daily_times)}")
-    while True:
-        now = datetime.now(tz)
-        # сформируем list of datetimes на ближайшие 24 часа (текущий день и, при необходимости, завтра)
-        upcoming = []
-        today = now.date()
-        for tstr in daily_times:
+        # Validate times format
+        for t in self.daily_times:
+            hh, mm, ss = map(int, t.split(':'))
+            assert 0 <= hh < 24 and 0 <= mm < 60 and 0 <= ss < 60
+
+    def _next_scheduled_datetime(self, now_dt: datetime) -> Tuple[datetime, int]:
+        """Возвращает ближайший datetime в tz_out и индекс в daily_times_window_index"""
+        tz = ZoneInfo(self.tz_out) if self.tz_out != 'UTC' else timezone.utc
+        today = now_dt.date()
+        candidates = []
+        for idx, tstr in enumerate(self.daily_times):
             hh, mm, ss = map(int, tstr.split(':'))
             dt = datetime.combine(today, time(hh, mm, ss), tz)
-            if dt <= now:
-                dt = dt + timedelta(days=1)  # уже прошло — запланировать на завтра
-            upcoming.append(dt)
-        # выберем ближайший
-        next_dt = min(upcoming)
-        wait_seconds = (next_dt - now).total_seconds()
-        # safety floor
-        if wait_seconds > 0:
-            # печатаем, когда следующий вызов
-            print(f"[{datetime.now(tz).isoformat()}] Next call at {next_dt.isoformat()} (wait {int(wait_seconds)} s)")
-            time_module.sleep(wait_seconds)
-        else:
-            # на случай негативного интервала, сразу вызываем
-            pass
-        try:
-            callback()
-        except Exception as e:
-            print("Callback error:", e)
-        # после выполнения цикл повторится и пересчитает ближайшее время
+            if dt <= now_dt:
+                dt += timedelta(days=1)
+            candidates.append((dt, idx))
+        next_dt, idx = min(candidates, key=lambda x: x[0])
+        return next_dt, idx
+
+    def _run_loop(self):
+        tz = ZoneInfo(self.tz_out) if self.tz_out != 'UTC' else timezone.utc
+        while not self._stop_event.is_set():
+            now = datetime.now(tz)
+            next_dt, idx = self._next_scheduled_datetime(now)
+            wait_seconds = (next_dt - now).total_seconds()
+            if wait_seconds > 0:
+                # Спим до следующего события, но прерываем сон каждые 1 секунду для возможности стопа
+                # (чтобы реагировать быстро на stop())
+                # Если интервал маленький, просто sleep(wait_seconds)
+                if wait_seconds > 2.0:
+                    slept = 0.0
+                    # блок sleep цикла с проверкой стопа
+                    while slept < wait_seconds and not self._stop_event.is_set():
+                        to_sleep = min(1.0, wait_seconds - slept)
+                        time_module.sleep(to_sleep)
+                        slept += to_sleep
+                    if self._stop_event.is_set():
+                        break
+                else:
+                    time_module.sleep(wait_seconds)
+            # Если стоп был установлен во время ожидания — выйти
+            if self._stop_event.is_set():
+                break
+
+            # Время достигнуто — формируем сигнал
+            fired = datetime.now(tz)
+            fired_utc = fired.astimezone(timezone.utc)
+            since_last = None
+            if self._last_fired_time is not None:
+                since_last = (fired - self._last_fired_time).total_seconds()
+            else:
+                since_last = None  # первый запуск
+
+            scheduled_time = next_dt  # уже в tz
+            window_index = self.daily_window_indices[idx] if idx < len(self.daily_window_indices) else None
+            window_range = WINDOWS_UTC[window_index] if (window_index is not None and 0 <= window_index < len(WINDOWS_UTC)) else None
+
+            signal = {
+                'scheduled_time': scheduled_time.isoformat(),
+                'fired_time': fired.isoformat(),
+                'since_last_seconds': since_last,
+                'window_index': window_index,
+                'window_range': window_range,
+                'utc_fired': fired_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+            }
+
+            # Помещаем сигнал в очередь (не блокируя)
+            try:
+                self.signal_queue.put_nowait(signal)
+            except Exception:
+                # очередь не должна падать — в крайнем случае игнорируем
+                pass
+
+            # Вызываем callback (если задан)
+            if self.callback:
+                try:
+                    self.callback(signal)
+                except Exception as e:
+                    # Не даём исключению убить поток
+                    print(f"[{self.name}] Callback exception:", e)
+
+            # Обновляем последний fired time
+            self._last_fired_time = fired
+
+            # Небольшая пауза перед следующей итерацией, чтобы цикл пересчитал следующий момент
+            time_module.sleep(0.1)
+
+    def start(self, daemon: bool = True):
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run_loop, name=self.name, daemon=daemon)
+        self._thread.start()
+
+    def stop(self, wait: bool = False, timeout: Optional[float] = None):
+        self._stop_event.set()
+        if wait and self._thread:
+            self._thread.join(timeout=timeout)
+
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def join(self, timeout: Optional[float] = None):
+        if self._thread:
+            self._thread.join(timeout=timeout)
 
 
-# Пример callback — здесь вы помещаете код запроса курса
-def example_callback():
-    now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
-    print(f"Fetching price... ({now})")
-    signals.finish_payment.send('PaymentManager', time=0)
-    # Здесь ваш код: запрос API, логирование и т.д.
-    # Например: requests.get(...)
 
-
-if __name__ == "__main__":
-    # Пример использования: вывести расписание для нескольких лимитов
-    # list = [1000, 2000, 3333, 5000]
-    # list = [10000]
-    # for limit in list:
-    #     sched = generate_schedule(limit_per_month=limit, days_in_month=31, tz_out='UTC')
-    #     print("=== limit:", limit, "daily:", sched['daily_requests'], "monthly_used:", sched['monthly_used'], "residual:", sched['residual_monthly'])
-    #     for w in sched['windows']:
-    #         print(f"Window {w['window']}: requests={w['requests']}, interval_min={w['interval_min']}, times_sample={w['times'][:3]}")
-    #     print("Total times in day:", len(sched['daily_times_flat']))
-    #     print("First 10 times (UTC):", sched['daily_times_flat'][:10])
-    #     print()
-
-    # Если хотите запускать таймер прямо сейчас — раскомментируйте следующие строки:
-    pick_limit = 10000
-    sched = generate_schedule(limit_per_month=pick_limit, days_in_month=31, tz_out='UTC')
-    run_scheduler(sched['daily_times_flat'], example_callback, tz_out='UTC')

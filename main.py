@@ -1,87 +1,116 @@
 import schedulertimer
+import telebot, sys, re
+import api_coinmarketcap
+
 from queue import Empty
-import signals
-
-# ---- Пример использования ----
-# if __name__ == "__main__":
-#     # Пример: генерируем расписание для лимита 2000/мес, tz UTC,
-#     # затем запускаем планировщик в отдельном потоке.
-#     LIMIT = 10000
-#     TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
-
-#     sched = schedulertimer.generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out=TZ)
-#     times = sched['daily_times_flat']
-#     window_indices = sched['daily_times_window_index']
-
-#     print("Daily requests:", sched['daily_requests'], "monthly_used:", sched['monthly_used'], "residual:", sched['residual_monthly'])
-#     print("Times today sample (first 10):", times[:10])
-
-#     # Пример callback: печатаем сигнал кратко
-#     def my_callback(signal):
-#         print("[callback] Signal received:", signal['fired_time'], "since_last:", signal['since_last_seconds'])
-
-#     scheduler = schedulertimer.TimerScheduler(daily_times=times, daily_window_indices=window_indices, callback=my_callback, tz_out=TZ, name="MyScheduler")
-#     scheduler.start(daemon=True)
-
-#     print("Scheduler started in background. Press Ctrl+C to stop or wait to receive signals.")
-#     try:
-#         # Демонстрация получения сигналов из очереди в основном потоке:
-#         while True:
-#             try:
-#                 sig = scheduler.signal_queue.get(timeout=5.0)  # ждём сигнал 5 сек
-#                 print("[main] Got signal from queue:", sig['fired_time'], "since_last:", sig['since_last_seconds'])
-#                 # Здесь вы можете обработать сигнал в основном потоке: отправить запрос, логировать и т.д.
-#             except Empty:
-#                 # каждый 5 секунд проверяем, что поток всё ещё жив
-#                 if not scheduler.is_running():
-#                     break
-#     except KeyboardInterrupt:
-#         print("Stopping scheduler...")
-#     finally:
-#         scheduler.stop(wait=True)
-#         print("Scheduler stopped.")
 
 
 
-
-def on_task_done(sender, last_scheduler):
-    print(sender, last_scheduler)
-
-
-
-signals.task_done.connect(on_task_done, sender='MediaWorker')
+f = open("./configs/telegram.key")
+TOKEN_TG = f.read()
+f = open("./configs/coinmarketcap.key")
+TOKEN_COIN = f.read()
 
 
+_bot = telebot.TeleBot( TOKEN_TG )
+_coinApi = api_coinmarketcap.CoinMarketCapAPI(TOKEN_COIN)
+symbols = ["BTC", "ETH", "TAC"]
+_prices_info = None
+notifications = {}
 
-import threading
-import time
-import asyncio
-from blinker import signal
 
-task_done = signal('task_done')
+def on_get_price(signal=None):
+    if signal != None:
+        print("[callback] Signal received:", signal['fired_time'], "since_last:", signal['since_last_seconds'])
 
-# Получаем основной asyncio loop
-loop = asyncio.get_event_loop()
+    # prices = _coinApi.get_prices(symbols, convert="USD")
+    # for s, p in prices.items():
+        # print(f"{s} -> {p:.8f} USD")
 
-def handle_in_main_loop(sender, kwargs):
-    # это будет выполнено в event loop
-    print(f"[asyncio main loop] got from {sender}: {kwargs}")
+    global _prices_info 
+    _prices_info = _coinApi.get_prices_info(symbols, convert="USD")
+    print("Результаты:")
+    for sym, data in _prices_info.items():
+        print(f"{sym}: base_price={data['base_price']} | converted_price={data['converted_price']} {data['convert_currency']}")
 
-@task_done.connect
-def _on_task_done(sender, **kwargs):
-    # этот код выполняется в потоке планировщика — безопасно запланируем обработку в loop
-    loop.call_soon_threadsafe(handle_in_main_loop, sender, kwargs)
+        coin = sym.lower()
+        current_price = data['converted_price']
+        for user_id in notifications:
+            check_and_notify(user_id, coin, current_price)
 
-def scheduler_loop():
-    i = 0
-    while i < 3:
-        time.sleep(1)
-        i += 1
-        task_done.send('scheduler', n=i)
-        threading.Thread(target=scheduler_loop, daemon=True).start()
+    print('\n\n')
 
-async def main():
-    # даём время событиям прийти
-    await asyncio.sleep(4)
 
-asyncio.run(main())
+@_bot.message_handler(commands=['start'])
+def send_welcome(message):
+    # user = user_verification(message)
+    username = str(message.chat.username)
+    # _db.delete_user_context(message.from_user.id, message.chat.id)
+    # t_mes = locale.find_translation(user.get_language(), 'TR_START_MESSAGE')
+    _bot.reply_to(message, 'hi'.format(username) )
+
+
+@_bot.message_handler(commands=['price'])
+def send_price(message):
+
+    text = ''
+    for sym, data in _prices_info.items():
+        text += '{} -> {} {}\n'.format(sym, data['converted_price'], data['convert_currency'])
+
+    _bot.send_message(message.chat.id, 'Курс валют:\n' + text )
+
+
+@_bot.message_handler(commands=['notify'])
+def handle_notify(message):
+    pattern = r'^/notify\s+(\w+)\s+([\d.]+)\s+(.+)$'
+    match = re.match(pattern, message.text.strip(), re.IGNORECASE)
+    if not match:
+        bot.reply_to(message, "Правильный формат: /notify btc 117380.50 зайди на биржу")
+        r_eturn
+
+    coin, price_str, note = match.groups()
+    try:
+        price = float(price_str)
+        if price <= 0:
+            raise ValueError
+    except ValueError:
+        _bot.reply_to(message, "Цена должна быть положительным числом.")
+        return
+
+    user_id = message.from_user.id
+    notif = {'coin': coin.lower(), 'price': price, 'note': note, 'sent': False}
+    notifications.setdefault(user_id, []).append(notif)
+    _bot.reply_to(message, f"Добавлено уведомление: {coin.upper()} при цене {price} — {note}")
+
+def check_and_notify(user_id, coin, current_price):
+    user_notifs = notifications.get(user_id, [])
+    # Берём уведомления с этой монетой и не отправленные
+    relevant = [n for n in user_notifs if n['coin'] == coin and not n['sent']]
+    # Только те, которые можно сработать по текущей цене
+    candidates = [n for n in relevant if current_price >= n['price']]
+    if not candidates:
+        return
+    # Самое большое значение, не превышающее курс (ближе всего)
+    best = max(candidates, key=lambda n: n['price'])
+    best['sent'] = True
+    _bot.send_message(user_id, f" {coin.upper()} достиг {best['price']}! {best['note']}")
+
+if __name__ == "__main__":
+    LIMIT = 10000 # лимит 2000/мес
+    TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
+
+    sched = schedulertimer.generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out=TZ)
+    times = sched['daily_times_flat']
+    window_indices = sched['daily_times_window_index']
+
+    print("Daily requests:", sched['daily_requests'], "monthly_used:", sched['monthly_used'], "residual:", sched['residual_monthly'])
+    print("Times today sample (first 10):", times[:10])
+
+    scheduler = schedulertimer.TimerScheduler(daily_times=times, daily_window_indices=window_indices, callback=on_get_price, tz_out=TZ, name="MyScheduler")
+    scheduler.start(daemon=True)
+
+    on_get_price(None)
+    _bot.infinity_polling()    
+
+
+
