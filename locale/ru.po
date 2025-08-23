@@ -1,0 +1,283 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: tg_base\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-1 12:00+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: ru_RU\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "TR_START_MESSAGE"
+msgstr "Привет, {}! Я чат-бот, созданный, чтобы быть твоим помощником в общении и поиске информации. Я предлагаю большой выбор языковых моделей, чтобы наше общение было комфортным и приятным на любом языке.\n\nЯ могу принимать и отвечать на голосовые сообщения, что делает общение более интересным и эффективным. Если у тебя есть фотографии, я могу их распознавать и работать с контекстом фотографии (пока платно).\n\nКак будет строиться наше общение?\nТы задаешь мне вопросы, я на них отвечаю. Как только ты решишь сменить тему, то смело нажимай на команду /dropcontext в контекстном меню, тогда я забуду все и буду отталкиваться от новых вопросов.\n\nВ меню также есть основные команды:\n/dropcontext - удалить текущую переписку\n/assistantmode - выбрать режим общения\n/help - получить подробную информацию о возможностях\n/settings - настройки\n/premium - информация о платной версии"
+
+msgid "TR_CLEAR_CONTEXT"
+msgstr "Контекст очищен"
+
+msgid "TR_GET_LOG"
+msgstr "Ваши последние {} лог(ов)\n\n{}"
+
+msgid "TR_GET_LOG_POST"
+msgstr "Ваши последние {} лог(ов) по запросу {}\n\n{}"
+
+msgid "TR_ERROR_SINTAX"
+msgstr "Неверный синтаксис\n подробнее в /help"
+
+msgid "TR_WAIT_POST"
+msgstr "Пожалуйста, подождите, запрос обрабатывается..."
+
+msgid "TR_ERROR_GET_RESULT"
+msgstr "Ошибка получения результата: {}"
+
+msgid "TR_ERROR_DECODE_VOICE"
+msgstr "Извините, запрос не выполнен.\nСкорее всего у вас не включен микрофон"
+
+msgid "TR_START_DECODE_VOICE"
+msgstr "Обработка началась!"
+
+msgid "TR_ERROR"
+msgstr "Ошибка!"
+
+msgid "TR_ERROR_OPENAI"
+msgstr "Извините, ошибка OpenAI: {}"
+
+msgid "TR_YES"
+msgstr "Да"
+
+msgid "TR_NO"
+msgstr "Нет"
+
+msgid "TR_SETTING"
+msgstr "Настройки бота"
+
+msgid "TR_DONT_RELEASES_FUNC"
+msgstr "Пока не реализовано!"
+
+msgid "TR_ERROR_NOT_CHANGE_LANGUAGE"
+msgstr "Извините, но в данный момент смена языков недоступна!"
+
+msgid "TR_ERROR_NOT_FIND_MODELS"
+msgstr "Извините, но модели не найдены!"
+
+msgid "TR_DESCRIPTION_MODELS"
+msgstr "У вас сейчас выбрана модель {} от компании {}\nВы можете выбрать другого ассистента:"
+
+msgid "TR_VOCALIZE"
+msgstr "Озвучить"
+
+msgid "TR_NEED_PREMIUM_ASSISTANT"
+msgstr "У вас нет доступа к этой модели, но вы всегда можете расширить свои возможности с премиум.\nПодробнее о нем /premium"
+
+msgid "TR_NEED_PERMISSION"
+msgstr "Недостаточно привилегий!"
+
+msgid "TR_USE_NEW_ASSISTANT"
+msgstr "Выбран новый ассистент!"
+
+msgid "TR_SUCCESS"
+msgstr "Успех"
+
+msgid "TR_SYSTEM_LANGUAGE_CHANGE"
+msgstr "Системный язык изменен!"
+
+msgid "TR_SYSTEM_LANGUAGE_SUPPORT"
+msgstr "Системный язык не поддерживается!"
+
+msgid "TR_FAILURE"
+msgstr "Провал"
+
+msgid "TR_NEED_PERMISSION_UPLOAD_PHOTO"
+msgstr "Извините, но обработка фото вам недоступна, вам нужно приобрести этот функционал /premium"
+
+msgid "TR_REPEAT_REQUEST"
+msgstr "Повторить запрос"
+
+msgid "TR_HAVE_NOT_TOKENS"
+msgstr "Извините, но ваш запрос превышает максимальную длину контекста.\nВаш запрос: {}\nМаксимальная длина: {}\n для продолжения сбросьте контекст командой /dropcontext, используйте другую модель или приобретите премиум /premium"
+
+msgid "TR_NO_PERMITION"
+msgstr "Эта команда доступна только админам"
+
+msgid "TR_ANSWER_SET_SETTINGS"
+msgstr "Вы уверены, что хотите применить настройки?"
+
+msgid "TR_NEW_OLD_CHANGES"
+msgstr "{}: old: {} -> new: {}"
+
+msgid "TR_DATA_IS_UP_TO_DATE"
+msgstr "Данные актуальны"
+
+msgid "DATA_IS_NOT_RELEVANT"
+msgstr "Данные не актуальны:\n{}\nПрименить изменения?"
+
+msgid "TR_TR_CHANGES_NOT_APPLICED"
+msgstr "Изменения не будут применены."
+
+msgid "TR_CHANGES_HAVE_BEEN_APPLICED"
+msgstr "Применены следующие изменения:\n{}"
+
+msgid "TR_MENU_LANGUAGE"
+msgstr "Настройки языка"
+
+msgid "TR_MENU_PROMT"
+msgstr "Настройки промта"
+
+msgid "TR_MENU_HELP"
+msgstr "Справка"
+
+msgid "TR_MENU_PREMIUM"
+msgstr "Премиум"
+
+msgid "TR_MENU_SUPPORT"
+msgstr "Поддержка"
+
+msgid "TR_MENU"
+msgstr "Назад в меню"
+
+msgid "TR_BACK"
+msgstr "Вернуться назад"
+
+msgid "TR_SELECT_LANGUAGE"
+msgstr "Выберите язык из доступных"
+
+msgid "TR_SELECT_PROMT"
+msgstr "В этом меню вы можете посмотреть текущий промт, задать свой и вернуться к промту по умолчанию"
+
+msgid "TR_BUTTOM_PROMT_NOW"
+msgstr "Показать текущий промт"
+
+msgid "TR_BUTTOM_SET_PROMT"
+msgstr "Задать промт"
+
+msgid "TR_BUTTOM_DEFAULT_PROMT"
+msgstr "Промт по умолчанию"
+
+msgid "TR_SHOW_PROMT_NOW"
+msgstr "Ваш текущий промт: \n\n{}"
+
+msgid "TR_SET_PROMT"
+msgstr "Напишите промт, который будет прикрепляться в начале каждой переписки"
+
+msgid "TR_DEFAULT_PROMT"
+msgstr "Промт по умолчанию: {}"
+
+msgid "TR_BUTTOM_APPLY"
+msgstr "Применить?"
+
+msgid "TR_PROMT_APPLY"
+msgstr "Промт принят"
+
+msgid "TR_GET_HELP"
+msgstr "Коротко о софте:\nОтветы генерируются при помощи GPT. По умолчанию используется модель gpt-3.5-turbo.\nРаспознавание и генерация голосовых сообщений осуществляется при помощи Yandex SpeechKit v1 (позже перейдем на v3).\n\nКоманды:\n/dropcontext - удаляет весь контекст переписки."
+
+msgid "TR_GET_HELP_ADMIN"
+msgstr "\n\nДоступно только для админа! Будь аккуратнее с командами\n/notify_all <текст> - Эта команда отправит во все чаты твой текст, прошу, будь аккуратнее\n/update_env - Эта команда обновляет переменные бота\n/update_lang_models_pay payments - актуализирует данные языков, моделей, платежных систем, таймера проверки подписки из базы\nТут будут еще команды ..."
+
+msgid "TR_MESSAGE_SUPPORT"
+msgstr "При возникновении проблем напишите сюда @assistant_gpts_help"
+
+msgid "TR_UNDO"
+msgstr "Отменить"
+
+msgid "TR_MENU_WEBSEARCH"
+msgstr "Настроить web search"
+
+msgid "TR_TITLE_WEBSEARCH_ON"
+msgstr "Web search - позволяет искать информацию в интернете.\nВ данный момент у вас включен поиск."
+
+msgid "TR_TITLE_WEBSEARCH_OFF"
+msgstr "Web search - позволяет искать информацию в интернете.\nВ данный момент у вас выключен поиск."
+
+msgid "TR_ON"
+msgstr "Включить"
+
+msgid "TR_OFF"
+msgstr "Выключить"
+
+msgid "TR_WEBSEARCH_ON"
+msgstr "Web search - включен"
+
+msgid "TR_WEBSEARCH_OFF"
+msgstr "Web search - выключен"
+
+msgid "TR_MENU_THINKS"
+msgstr "Настроить think"
+
+msgid "TR_MENU_LOCATE"
+msgstr "Задать локацию"
+
+msgid "TR_PAYMENT_LOCK_FOR_BANED_USER"
+msgstr "Оплата не доступна для заблокированных пользователей"
+
+msgid "TR_PAYMENT_SYSTEM_EMPTY"
+msgstr "В данный момент невозможно выбрать способ оплаты"
+
+msgid "TR_SELECT_PAYMENT"
+msgstr "Выберите способ оплаты:"
+
+msgid "TR_SELECT_TARIFF"
+msgstr "Тут вы можете выберете тариф по этой ссылке {}"
+
+msgid "TR_TARIFF_ONCE"
+msgstr "В данный момент доступен только один тариф открывающий доступ ко всему. Подробнее о нем [здесь]({}) \nВыберите способ оплаты:"
+
+msgid "TR_PAYMENT_SYSTEM_DONT_WORK_NOW"
+msgstr "В данный момент платежи не принимаются."
+
+msgid "TR_SUBSCRIBE_FOR_ONE_MOUNTH"
+msgstr "Оформление подписки на {} дней!"
+
+msgid "TR_PAY"
+msgstr "Оплатить {}{}"
+
+msgid "TR_CHECK_PAY"
+msgstr "Проверить платеж"
+
+msgid "TR_SUCCESSFUL_PAYMENT"
+msgstr "Успешная оплата! \nТеперь вам доступен новый функционал."
+
+msgid "TR_SUBSCRIPRION_ENDED"
+msgstr "К сожалению, ваша подписка истекла. Продлить её можно в разделе /premium."
+
+msgid "TR_DUBLICATE_PAY"
+msgstr "К сожалению, второй раз не получиться оплатить по этой ссылке."
+
+msgid "TR_UPDATE_DATA"
+msgstr "Данные языков, моделей, платежных систем и таймера проверки подписки будет подтянут из базы!"
+
+msgid "TR_TARIF_ONE_DESCRIPTION"
+msgstr "Тариф Ultimate предоставляет доступ ко всему функционалу. Выберите способ оплаты:"
+
+msgid "TR_TARIFFS_MENU"
+msgstr "Доступны следующие тарифы: \n{}\n\nВыберете тариф для оплаты."
+
+msgid "TR_TARIF_PATERN"
+msgstr "{} включает в себя:\n{}\nза {} / {} на {} дней"
+
+msgid "TR_TARIF_PATERN_EMPTY"
+msgstr "{} за:\n{} / {} на {} дней"
+
+msgid "TR_TARIF_ALL"
+msgstr "Все модели"
+
+msgid "TR_TARRIF_DONT_LOAD"
+msgstr "К сожалению, тарифы не загрузились. Попробуйте позже или напишите в {}"
+
+msgid "TR_SUBSCRIPTION_RENEWAL"
+msgstr "У вас уже есть эта подписка. Она действует ещё {} дней. \nЕсли хотите продлить её заранее, выберите способ оплаты:"
+
+msgid "TR_BALANCE_MES"
+msgstr "Топ 10 популярных монет:\n{}\nИзбранное:\n{}\n\nПоследнее Обновление:\n{}"
+
+msgid "TR_PARENT_COIN"
+msgstr "1 {} -> {} {}"
+
+msgid "TR_NO_FAVORITES"
+msgstr "Нет избранного"
+
+msgid "TR_"
+msgstr ""
+
