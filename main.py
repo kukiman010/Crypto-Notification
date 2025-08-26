@@ -3,6 +3,8 @@ import requests
 import telebot
 import sys
 import re
+import datetime
+from zoneinfo import ZoneInfo
 
 from systems.configure      import Settings
 _setting = Settings()
@@ -24,6 +26,14 @@ _logger = LoggerSingleton.new_instance('logs/log_cripto_notify.log')
 _locale = Locale('locale/')
 # _env = Environment()
 _db = dbApi( _setting.get_db_dbname(), _setting.get_db_user(), _setting.get_db_pass(), _setting.get_db_host(), _setting.get_db_port() )
+
+
+# LIMIT = _coinApi.get
+# TZ = _env.get_timeZone()
+
+# LIMIT = 44640 # лимит 2000/мес
+LIMIT = 10000 # лимит 2000/мес
+TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
 
 
 TOKEN_TG = _setting.get_tgToken()
@@ -61,10 +71,12 @@ if __name__ == "__main__":
 
 
 def on_update_users_price():
-    users = _db.get_users_balance_mes()
+    # users = _db.get_users_balance_mes()
+    
+    user_ids =  _db.get_last_active_users()
 
-    for user in users:
-        balance_user(user.get_chatId())
+    for id in user_ids:
+        balance_user(id)
 
 
 # def on_check_notifications():
@@ -91,31 +103,31 @@ def on_get_price(signal=None):
         print("[callback] Signal received:", signal['fired_time'], "since_last:", signal['since_last_seconds'])
 
 
-    # _coinApi.force_refresh()
+    _coinApi.force_refresh()
 
-    # thread_price = threading.Thread(target=on_update_users_price)
+    thread_price = threading.Thread(target=on_update_users_price)
     # thread_notify = threading.Thread(target=on_check_notifications)
 
-    # thread_price.start()
+    thread_price.start()
     # thread_notify.start()
 
 
 @_bot.message_handler(commands=['start'])
 def send_welcome(message):
-    # user = user_verification(message)
-    username = str(message.chat.username)
-    # _db.delete_user_context(message.from_user.id, message.chat.id)
-    # t_mes = locale.find_translation(user.get_language(), 'TR_START_MESSAGE')
-    _bot.reply_to(message, 'hi'.format(username) )
+    user = user_verification(message)
+    
+    t_mes = _locale.find_translation(user.get_language(), 'TR_START_MESSAGE').format(user.get_name())
+    send_text(_bot, user.get_user_id(), t_mes )
 
-    balance_user()
+    balance_user(user.get_user_id(), False)
+
 
 
 @_bot.message_handler(commands=['price'])
 def send_price(message):
-    userId = message.chat.id
+    user = user_verification(message)
 
-    balance_user(userId)
+    balance_user(user.get_user_id(), False)
 
 
 @_bot.message_handler(commands=['notify'])
@@ -155,14 +167,19 @@ def handle_notify(message):
 #     _bot.send_message(user_id, f" {coin.upper()} достиг {best['price']}! {best['note']}")
 
 
-def balance_user(userId):
+def balance_user(userId, automatically_call:bool = True):
     # users = _db.get_users_balance_mes()
+
+    user = user_verification_easy(userId)
+
+    # if not user.is_valid():
+        # return
 
     t_mes = _locale.find_translation('ru', 'TR_BALANCE_MES')
     pattern_coin = _locale.find_translation('ru', 'TR_PARENT_COIN')
 
     coins = _coinApi.get_top(10)
-    last_update_coin = ''
+    # last_update_coin = ''
 
     coins_mes = ''
 
@@ -172,7 +189,7 @@ def balance_user(userId):
             s += ' '
 
         coins_mes += str( pattern_coin.format( s, node.price, node.convert_currency) + '\n' )
-        last_update_coin = node.last_updated
+        # last_update_coin = node.last_updated
 
     favorites = ''
     # for coint in user.get_favorites_coins()
@@ -181,8 +198,29 @@ def balance_user(userId):
     if not favorites:
         favorites = _locale.find_translation('ru', 'TR_NO_FAVORITES')
 
+    isNew = False
 
-    send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin) )
+    if user.get_count_post_balance_mes() > 5 :
+        isNew = True
+    elif user.get_last_balance_mes_id() == 0:
+        isNew = True
+        
+
+    tz = ZoneInfo(TZ) if TZ != 'UTC' else datetime.timezone.utc
+    last_update_coin = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %Z%z")
+        
+    if isNew:
+        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin)  )
+    else:
+        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), id_message_for_edit = user.get_last_balance_mes_id() )
+
+    if message_id != None:
+        _db.update_last_balance_mes_id(userId, message_id)
+
+    # print()
+
+
+    
 
 
 
@@ -191,25 +229,30 @@ def user_verification(message) -> User:
 
     if _db.find_user(message.from_user.id) == False:
         # user.set_default_data(_env.get_language(), _env.get_permission(), _env.get_company_ai(), _env.get_assistant_model(), _env.get_recognizes_photo_model(), _env.get_generate_photo_model(), _env.get_text_to_audio(), _env.get_audio_to_text(), _env.get_speakerName(), _env.get_prompt())
-
         name = message.chat.username
         if not name:
-            # name = message.chat.
-            name = 'FIO'
+            name = message.chat.first_name
 
-        _db.add_user(message.from_user.id, message.chat.username, message.chat.type, message.from_user.language_code )
-        _logger.add_info('создан новый пользователь {}'.format(message.chat.username))
-    else:
-        _db.add_users_in_groups(message.from_user.id, message.chat.id)
+        _db.add_user(message.from_user.id, name, message.chat.type, message.from_user.language_code )
+        _logger.add_info('Cоздан новый пользователь {} {}'.format(message.from_user.id, name))
     
-    user = _db.get_user_def(message.from_user.id)
+    user = _db.get_user(message.from_user.id)
+    _db.update_last_login(user.get_user_id())
 
-    if user.get_status() == 0: 
+    if user.get_tariff() == 0: # block
         return None
 
     return user
 
 
+def user_verification_easy(userId) -> User:
+    user = User()
+    if _db.find_user(userId) == False:
+        return None
+    else:
+        user = _db.get_user(userId)
+        _db.update_last_login(user.get_user_id())
+        return user
 
 
 
@@ -221,14 +264,6 @@ def user_verification(message) -> User:
 
 if __name__ == "__main__":
     _coinApi.parse_cmc_api_limits( _coinApi.get_cmc_api_limits() )
-
-    # LIMIT = _coinApi.get
-    # TZ = _env.get_timeZone()
-
-    LIMIT = 10000 # лимит 2000/мес
-    TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
-    
-
 
     sched = generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out=TZ)
     times = sched['daily_times_flat']

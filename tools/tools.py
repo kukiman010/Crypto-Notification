@@ -31,16 +31,24 @@ def send_text(telegram_bot, chat_id, text, reply_markup=None, id_message_for_edi
     if text:
         results.append(text)
 
+    sent_message_id = None
 
-    for chunk in results:
+    for i, chunk in enumerate(results):
         try:
-            if id_message_for_edit:
-                telegram_bot.edit_message_text(chat_id=chat_id, message_id=id_message_for_edit, text=chunk, reply_markup=reply_markup)
+            if id_message_for_edit and i == 0:
+                msg = telegram_bot.edit_message_text(chat_id=chat_id, message_id=id_message_for_edit, text=chunk, reply_markup=reply_markup)
+                sent_message_id = msg.message_id  # Вернет id отредактированного сообщения
                 id_message_for_edit = None
             else:
-                telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
+                msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
+                # ID только первого отправленного сообщения (собственно, только оно может быть потом редактировано)
+                if sent_message_id is None:
+                    sent_message_id = msg.message_id
 
-                
         except Exception as e:
             _logger.add_critical(f"Ошибка для chat_id:{chat_id} при отправке сообщения. Ошибка: {e}\n В этом тексте: \n{chunk}")
-            telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
+            msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
+            if sent_message_id is None:
+                sent_message_id = msg.message_id
+
+    return sent_message_id
