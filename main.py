@@ -3,8 +3,8 @@ import requests
 import telebot
 import sys
 import re
-import datetime
-from zoneinfo import ZoneInfo
+
+from telebot                import types
 
 from systems.configure      import Settings
 _setting = Settings()
@@ -12,12 +12,14 @@ _setting = Settings()
 from systems.databaseapi    import dbApi
 from systems.logger         import LoggerSingleton
 from systems.translator     import Locale
+from control.timezone       import TimeZone_api
+from control.languages      import languages_api
+from control.user           import User
 
 from api_coinmarketcap      import CoinMarketCapApi
-from control.data_models    import CryptoBrief
-from control.user           import User
 from systems.schedulertimer import generate_schedule, TimerScheduler
-from tools.tools            import get_time_string, send_text
+from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset
+
 
 
 
@@ -55,6 +57,8 @@ if TOKEN_COIN_MARKET == '':
 
 _coinApi = CoinMarketCapApi( api_key=TOKEN_COIN_MARKET, default_convert="USD", cache_limit=200, verbose=True )
 # _coinApi.force_refresh()
+_time_zone_api = TimeZone_api( _db.get_time_zones() )
+_languages_api = languages_api( _db.get_languages() )
 
 notifications = {}
 
@@ -64,7 +68,7 @@ if __name__ == "__main__":
     except requests.exceptions.ConnectionError as e:
         _logger.add_error('{} - Нет соединения с сервером telegram bot: {}'.format(get_time_string() ,e))
 
-
+# _bot = telebot.TeleBot( TOKEN_TG )
 
 
 
@@ -115,11 +119,36 @@ def on_get_price(signal=None):
 @_bot.message_handler(commands=['start'])
 def send_welcome(message):
     user = user_verification(message)
+
+    language = _languages_api.code_to_description(user.get_language())
+
+    zone_str = ''
+    if user.get_code_time() > 0:
+        zone_str = 'UTC +{}'.format(user.get_code_time())
+    else:
+        zone_str = 'UTC {}'.format(user.get_code_time())
     
-    t_mes = _locale.find_translation(user.get_language(), 'TR_START_MESSAGE').format(user.get_name())
-    send_text(_bot, user.get_user_id(), t_mes )
+    send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_START_MESSAGE').format(user.get_name(), language, zone_str) )
 
     balance_user(user.get_user_id(), False)
+
+
+
+@_bot.message_handler(commands=['set_time_zone'])
+def get_time_zone(message):
+    user = user_verification(message)
+
+    if user.is_valid():
+        get_time_zone(user)
+
+
+
+@_bot.message_handler(commands=['set_language'])
+def get_language(message):
+    user = user_verification(message)
+
+    if user.is_valid():
+        get_language(user)
 
 
 
@@ -127,7 +156,9 @@ def send_welcome(message):
 def send_price(message):
     user = user_verification(message)
 
-    balance_user(user.get_user_id(), False)
+    if user.is_valid():
+        balance_user(user.get_user_id(), False)
+
 
 
 @_bot.message_handler(commands=['notify'])
@@ -153,6 +184,51 @@ def handle_notify(message):
     _bot.reply_to(message, f"Добавлено уведомление: {coin.upper()} при цене {price} — {note}")
 
 
+
+@_bot.callback_query_handler(func=lambda call: True)
+def debug_callback(call):
+    user = user_verification_easy(call.message.chat.id)
+    key = call.data
+    message_id = call.message.message_id
+    chat_id = call.message.chat.id
+
+    timezone_pattern = r'^set_timezone_model_(\d+)$'
+    timezone_match = re.match(timezone_pattern, key)
+
+    language_pattern = r'^set_lang_model_(\d+)$'
+    language_match = re.match(language_pattern, key)
+
+
+    if key == 'menu':
+        _bot.answer_callback_query(call.id, text = '')
+        # main_menu(user, chat_id, message_id)
+
+    elif timezone_match:
+        _bot.answer_callback_query(call.id, text = '')
+        id = int(timezone_match.group(1))
+        time_zone = _time_zone_api.find_botton(id)
+        _db.set_timezone(user.get_user_id(), time_zone)
+        send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_SUCCESSFUL_TIMEZONE'), id_message_for_edit= message_id)
+
+    elif language_match:
+        id = int(language_match.group(1))
+        code_lang = _languages_api.find_bottom(id)
+        if _locale.islanguage( code_lang ):
+            _db.set_user_lang(user.get_user_id(), code_lang)
+            user._lang_code = code_lang
+            send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_SYSTEM_LANGUAGE_CHANGE'), id_message_for_edit= message_id)
+            _bot.answer_callback_query(call.id, _locale.find_translation(code_lang, 'TR_SUCCESS'))
+        else:
+            send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_SYSTEM_LANGUAGE_SUPPORT'), id_message_for_edit= message_id)
+            _bot.answer_callback_query(call.id, _locale.find_translation(user.get_language(), 'TR_FAILURE'))
+
+
+    else:
+        t_mes = _locale.find_translation(user.get_language(), 'TR_ERROR')
+        _bot.answer_callback_query(call.id, text = t_mes)
+
+
+
 # def check_and_notify(user_id, coin, current_price):
 #     user_notifs = notifications.get(user_id, [])
 #     # Берём уведомления с этой монетой и не отправленные
@@ -168,8 +244,6 @@ def handle_notify(message):
 
 
 def balance_user(userId, automatically_call:bool = True):
-    # users = _db.get_users_balance_mes()
-
     user = user_verification_easy(userId)
 
     # if not user.is_valid():
@@ -179,17 +253,13 @@ def balance_user(userId, automatically_call:bool = True):
     pattern_coin = _locale.find_translation('ru', 'TR_PARENT_COIN')
 
     coins = _coinApi.get_top(10)
-    # last_update_coin = ''
-
     coins_mes = ''
 
     for node in coins:
         s = node.symbol
         if len(node.symbol) == 3:
             s += ' '
-
         coins_mes += str( pattern_coin.format( s, node.price, node.convert_currency) + '\n' )
-        # last_update_coin = node.last_updated
 
     favorites = ''
     # for coint in user.get_favorites_coins()
@@ -205,11 +275,9 @@ def balance_user(userId, automatically_call:bool = True):
     elif user.get_last_balance_mes_id() == 0:
         isNew = True
         
-
-    tz = ZoneInfo(TZ) if TZ != 'UTC' else datetime.timezone.utc
-    last_update_coin = datetime.datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S %Z%z")
+    last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
         
-    if isNew:
+    if isNew or automatically_call == False:
         message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin)  )
     else:
         message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), id_message_for_edit = user.get_last_balance_mes_id() )
@@ -233,7 +301,21 @@ def user_verification(message) -> User:
         if not name:
             name = message.chat.first_name
 
-        _db.add_user(message.from_user.id, name, message.chat.type, message.from_user.language_code )
+        lang_code = message.from_user.language_code
+        time_zone = 0
+        if lang_code == 'ru':
+            time_zone = 3
+        elif lang_code == 'en':
+            time_zone = 0
+        elif lang_code == 'es':
+            time_zone = -6
+        elif lang_code == '0':
+            time_zone = -4
+        elif lang_code == 'fr':
+            time_zone = 1
+        
+
+        _db.add_user(message.from_user.id, name, message.chat.type, lang_code, time_zone )
         _logger.add_info('Cоздан новый пользователь {} {}'.format(message.from_user.id, name))
     
     user = _db.get_user(message.from_user.id)
@@ -253,7 +335,41 @@ def user_verification_easy(userId) -> User:
         user = _db.get_user(userId)
         _db.update_last_login(user.get_user_id())
         return user
+    
 
+def get_time_zone(user: User, message_id:int = -1):
+    label = _locale.find_translation(user.get_language(), 'TR_MENU_TIMEZONE')
+    
+    buttons = _time_zone_api.available_by_status()
+    markup = types.InlineKeyboardMarkup()
+    for key, value in buttons.items():
+        markup.add(types.InlineKeyboardButton(value, callback_data=key))
+
+    if message_id >= 0:
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
+        send_text(_bot, user.get_user_id(), label, reply_markup=markup, id_message_for_edit=message_id)
+    else:
+        send_text(_bot, user.get_user_id(), label, reply_markup=markup)
+
+
+
+def get_language(user: User, message_id:int = -1):
+    # _bot.answer_callback_query(call.id, text = '')
+    if user == None or _languages_api.size() == 0:
+        send_text(user.get_language(), _locale.find_translation(user.get_language(), 'TR_ERROR_NOT_CHANGE_LANGUAGE'))
+        return
+    t_mes = _locale.find_translation(user.get_language(), 'TR_SELECT_LANGUAGE')
+    
+    buttons = _languages_api.available_by_status()
+    markup = types.InlineKeyboardMarkup()
+    for key, value in buttons.items():
+        markup.add(types.InlineKeyboardButton(value, callback_data=key))
+
+    if message_id >= 0:
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
+        send_text(_bot, user.get_language(), t_mes, reply_markup=markup, id_message_for_edit=message_id)
+    else:
+        send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
 
 
 
@@ -276,7 +392,7 @@ if __name__ == "__main__":
     scheduler.start(daemon=True)
 
     on_get_price(None)
-    _bot.infinity_polling()    
+    
 
 
-
+_bot.infinity_polling()    

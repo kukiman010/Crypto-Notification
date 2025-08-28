@@ -1,0 +1,198 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: tg_base\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-1 12:00+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: English <en@li.org>\n"
+"Language: en_EN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "TR_START_MESSAGE"
+msgstr "Hello, {}!\n\nI am a bot that helps you track cryptocurrency rates. Your language has been set to {} automatically (you can change it with /set_language). The time zone is set to {} for accurate time display — if you prefer, you can change it using /set_time_zone.\n\nHere's what I can do:\n- Show popular cryptocurrencies\n- Display favorite coins\n- Set price alerts\nIf you need help, type /menu!"
+
+msgid "TR_GET_LOG"
+msgstr "Your last {} log(s)\n\n{}"
+
+msgid "TR_GET_LOG_POST"
+msgstr "Your last {} log(s) for request {}\n\n{}"
+
+msgid "TR_ERROR_SINTAX"
+msgstr "Invalid syntax\nSee details in /help"
+
+msgid "TR_WAIT_POST"
+msgstr "Please wait, your request is being processed..."
+
+msgid "TR_ERROR_GET_RESULT"
+msgstr "Error getting result: {}"
+
+msgid "TR_START_DECODE_VOICE"
+msgstr "Processing started!"
+
+msgid "TR_ERROR"
+msgstr "Error!"
+
+msgid "TR_ERROR_OPENAI"
+msgstr "Sorry, OpenAI error: {}"
+
+msgid "TR_YES"
+msgstr "Yes"
+
+msgid "TR_NO"
+msgstr "No"
+
+msgid "TR_SETTING"
+msgstr "Bot settings"
+
+msgid "TR_DONT_RELEASES_FUNC"
+msgstr "Not implemented yet!"
+
+msgid "TR_ERROR_NOT_CHANGE_LANGUAGE"
+msgstr "Sorry, language change is currently unavailable!"
+
+msgid "TR_NEED_PERMISSION"
+msgstr "Insufficient privileges!"
+
+msgid "TR_USE_NEW_ASSISTANT"
+msgstr "New assistant selected!"
+
+msgid "TR_SUCCESS"
+msgstr "Success"
+
+msgid "TR_SYSTEM_LANGUAGE_CHANGE"
+msgstr "System language changed!"
+
+msgid "TR_SYSTEM_LANGUAGE_SUPPORT"
+msgstr "System language not supported!"
+
+msgid "TR_FAILURE"
+msgstr "Failure"
+
+msgid "TR_NO_PERMITION"
+msgstr "This command is available only to admins"
+
+msgid "TR_ANSWER_SET_SETTINGS"
+msgstr "Are you sure you want to apply the settings?"
+
+msgid "TR_NEW_OLD_CHANGES"
+msgstr "{}: old: {} -> new: {}"
+
+msgid "TR_DATA_IS_UP_TO_DATE"
+msgstr "Data is up-to-date"
+
+msgid "DATA_IS_NOT_RELEVANT"
+msgstr "Data is not relevant:\n{}\nApply changes?"
+
+msgid "TR_MENU_LANGUAGE"
+msgstr "Language settings"
+
+msgid "TR_MENU_PROMT"
+msgstr "Prompt settings"
+
+msgid "TR_MENU_HELP"
+msgstr "Help"
+
+msgid "TR_MENU_PREMIUM"
+msgstr "Premium"
+
+msgid "TR_MENU_SUPPORT"
+msgstr "Support"
+
+msgid "TR_MENU"
+msgstr "Back to menu"
+
+msgid "TR_BACK"
+msgstr "Go back"
+
+msgid "TR_SELECT_LANGUAGE"
+msgstr "Select a language from available options"
+
+msgid "TR_BUTTOM_APPLY"
+msgstr "Apply?"
+
+msgid "TR_UNDO"
+msgstr "Undo"
+
+msgid "TR_ON"
+msgstr "On"
+
+msgid "TR_OFF"
+msgstr "Off"
+
+msgid "TR_PAYMENT_LOCK_FOR_BANED_USER"
+msgstr "Payment is not available for banned users"
+
+msgid "TR_PAYMENT_SYSTEM_EMPTY"
+msgstr "Currently, payment method selection is unavailable"
+
+msgid "TR_SELECT_PAYMENT"
+msgstr "Choose a payment method:"
+
+msgid "TR_SELECT_TARIFF"
+msgstr "Here you can choose a tariff at this link {}"
+
+msgid "TR_PAYMENT_SYSTEM_DONT_WORK_NOW"
+msgstr "Payments are not accepted at the moment."
+
+msgid "TR_SUBSCRIBE_FOR_ONE_MOUNTH"
+msgstr "Subscribe for {} days!"
+
+msgid "TR_PAY"
+msgstr "Pay {}{}"
+
+msgid "TR_CHECK_PAY"
+msgstr "Check payment"
+
+msgid "TR_SUCCESSFUL_PAYMENT"
+msgstr "Payment successful!\nNow you have access to new features."
+
+msgid "TR_SUBSCRIPRION_ENDED"
+msgstr "Unfortunately, your subscription has expired. Renew it in the /premium section."
+
+msgid "TR_DUBLICATE_PAY"
+msgstr "Unfortunately, you cannot pay again using this link."
+
+msgid "TR_UPDATE_DATA"
+msgstr "Language, model, payment system data and subscription check timer will be updated from the database!"
+
+msgid "TR_TARIF_ONE_DESCRIPTION"
+msgstr "The Ultimate plan gives you access to all functionality. Choose your payment method:"
+
+msgid "TR_TARIFFS_MENU"
+msgstr "The following tariffs are available:\n{}\n\nChoose a tariff to pay."
+
+msgid "TR_TARIF_PATERN"
+msgstr "{} includes:\n{}\nfor {} / {} per {} days"
+
+msgid "TR_TARIF_PATERN_EMPTY"
+msgstr "{} for:\n{} / {} per {} days"
+
+msgid "TR_TARIF_ALL"
+msgstr "All models"
+
+msgid "TR_TARRIF_DONT_LOAD"
+msgstr "Unfortunately, tariffs did not load. Try again later or contact {}"
+
+msgid "TR_SUBSCRIPTION_RENEWAL"
+msgstr "You already have this subscription. It is valid for another {} days.\nIf you want to renew it early, choose a payment method:"
+
+msgid "TR_BALANCE_MES"
+msgstr "Top 10 popular coins:\n{}\nFavorites:\n{}\n\nLast Update (set time zone with /set_time_zone):\n{}"
+
+msgid "TR_PARENT_COIN"
+msgstr "1 {} -> {} {}"
+
+msgid "TR_NO_FAVORITES"
+msgstr "No favorite coins"
+
+msgid "TR_MENU_TIMEZONE"
+msgstr "Here you can set your time zone (time zone). This is necessary for the correct display of information for you.\nSelect a suitable zone:"
+
+msgid "TR_SUCCESSFUL_TIMEZONE"
+msgstr "Time zone settings successfully applied!"
+
+msgid "TR_"
+msgstr ""

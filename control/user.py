@@ -9,6 +9,7 @@ class User:
         self._action =                  ''
         self._last_balance_mes_id=      ''
         self._count_post_balance_mes =  ''
+        self._code_time =               0
         self._last_login =              ''
         self._registration =            ''
         
@@ -20,7 +21,7 @@ class User:
      
 
 
-    def set_data(self, user_id, user_name, tariff, type, language_code, favorit_coins, wait_action, last_balance_mes_id, count_post_balance_mes, last_login, registration):
+    def set_data(self, user_id, user_name, tariff, type, language_code, favorit_coins, wait_action, last_balance_mes_id, count_post_balance_mes, code_time, last_login, registration):
         self._user_id =                 user_id
         self._name =                    user_name
         self._tariff =                  tariff
@@ -30,8 +31,10 @@ class User:
         self._action =                  wait_action
         self._last_balance_mes_id=      last_balance_mes_id
         self._count_post_balance_mes =  count_post_balance_mes
+        self._code_time =               code_time
         self._last_login =              last_login
         self._registration =            registration
+
 
 
     def get_user_id(self):
@@ -52,6 +55,8 @@ class User:
         return self._last_balance_mes_id
     def get_count_post_balance_mes(self):
         return self._count_post_balance_mes
+    def get_code_time(self):
+        return self._code_time
     def get_last_login(self):
         return self._last_login
     def get_registration(self):

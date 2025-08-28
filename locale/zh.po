@@ -1,0 +1,198 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: tg_base\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-1 12:00+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Chinese <zh@li.org>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "TR_START_MESSAGE"
+msgstr "您好，{}！\n\n我是一个帮助您跟踪加密货币汇率的机器人。目前您的语言已自动设置为{}（可通过 /set_language 指令更换）。时区已设置为 {} 以便正确显示时间，如需更改可用 /set_time_zone。\n\n我可以：\n- 展示热门加密货币\n- 查看收藏币种\n- 设置价格提醒\n如需帮助，请输入/menu！"
+
+msgid "TR_GET_LOG"
+msgstr "你最近的{}条日志\n\n{}"
+
+msgid "TR_GET_LOG_POST"
+msgstr "你最近的{}条与请求{}相关的日志\n\n{}"
+
+msgid "TR_ERROR_SINTAX"
+msgstr "语法错误\n详细信息见/help"
+
+msgid "TR_WAIT_POST"
+msgstr "请稍候，正在处理请求……"
+
+msgid "TR_ERROR_GET_RESULT"
+msgstr "获取结果时出错：{}"
+
+msgid "TR_START_DECODE_VOICE"
+msgstr "处理开始！"
+
+msgid "TR_ERROR"
+msgstr "错误！"
+
+msgid "TR_ERROR_OPENAI"
+msgstr "对不起，OpenAI 错误：{}"
+
+msgid "TR_YES"
+msgstr "是"
+
+msgid "TR_NO"
+msgstr "否"
+
+msgid "TR_SETTING"
+msgstr "机器人设置"
+
+msgid "TR_DONT_RELEASES_FUNC"
+msgstr "尚未实现！"
+
+msgid "TR_ERROR_NOT_CHANGE_LANGUAGE"
+msgstr "抱歉，目前无法更改语言！"
+
+msgid "TR_NEED_PERMISSION"
+msgstr "权限不足！"
+
+msgid "TR_USE_NEW_ASSISTANT"
+msgstr "已选择新助理！"
+
+msgid "TR_SUCCESS"
+msgstr "成功"
+
+msgid "TR_SYSTEM_LANGUAGE_CHANGE"
+msgstr "系统语言已更改！"
+
+msgid "TR_SYSTEM_LANGUAGE_SUPPORT"
+msgstr "暂不支持该系统语言！"
+
+msgid "TR_FAILURE"
+msgstr "失败"
+
+msgid "TR_NO_PERMITION"
+msgstr "此命令仅限管理员使用"
+
+msgid "TR_ANSWER_SET_SETTINGS"
+msgstr "您确定要应用设置吗？"
+
+msgid "TR_NEW_OLD_CHANGES"
+msgstr "{}：旧：{} -> 新：{}"
+
+msgid "TR_DATA_IS_UP_TO_DATE"
+msgstr "数据是最新的"
+
+msgid "DATA_IS_NOT_RELEVANT"
+msgstr "数据已过期：\n{}\n是否应用更改？"
+
+msgid "TR_MENU_LANGUAGE"
+msgstr "语言设置"
+
+msgid "TR_MENU_PROMT"
+msgstr "Prompt 设置"
+
+msgid "TR_MENU_HELP"
+msgstr "帮助"
+
+msgid "TR_MENU_PREMIUM"
+msgstr "高级"
+
+msgid "TR_MENU_SUPPORT"
+msgstr "支持"
+
+msgid "TR_MENU"
+msgstr "返回主菜单"
+
+msgid "TR_BACK"
+msgstr "返回上一页"
+
+msgid "TR_SELECT_LANGUAGE"
+msgstr "请选择可用语言"
+
+msgid "TR_BUTTOM_APPLY"
+msgstr "应用？"
+
+msgid "TR_UNDO"
+msgstr "撤销"
+
+msgid "TR_ON"
+msgstr "开启"
+
+msgid "TR_OFF"
+msgstr "关闭"
+
+msgid "TR_PAYMENT_LOCK_FOR_BANED_USER"
+msgstr "被封禁用户无法支付"
+
+msgid "TR_PAYMENT_SYSTEM_EMPTY"
+msgstr "暂时无法选择支付方式"
+
+msgid "TR_SELECT_PAYMENT"
+msgstr "请选择支付方式："
+
+msgid "TR_SELECT_TARIFF"
+msgstr "您可以通过此链接选择套餐：{}"
+
+msgid "TR_PAYMENT_SYSTEM_DONT_WORK_NOW"
+msgstr "暂时不支持付款。"
+
+msgid "TR_SUBSCRIBE_FOR_ONE_MOUNTH"
+msgstr "订阅{}天！"
+
+msgid "TR_PAY"
+msgstr "支付{}{}"
+
+msgid "TR_CHECK_PAY"
+msgstr "检查付款"
+
+msgid "TR_SUCCESSFUL_PAYMENT"
+msgstr "支付成功！\n现在您可以使用新功能了。"
+
+msgid "TR_SUBSCRIPRION_ENDED"
+msgstr "很抱歉，您的订阅已到期。您可以在/premium页面续订。"
+
+msgid "TR_DUBLICATE_PAY"
+msgstr "很抱歉，无法通过此链接重复支付。"
+
+msgid "TR_UPDATE_DATA"
+msgstr "语言、模型、支付系统和订阅检查定时器将从数据库中刷新！"
+
+msgid "TR_TARIF_ONE_DESCRIPTION"
+msgstr "Ultimate 套餐可访问全部功能。请选择支付方式："
+
+msgid "TR_TARIFFS_MENU"
+msgstr "可用套餐如下：\n{}\n\n请选择要支付的套餐。"
+
+msgid "TR_TARIF_PATERN"
+msgstr "{}包含：\n{}\n，价格为{} / {}，共{}天"
+
+msgid "TR_TARIF_PATERN_EMPTY"
+msgstr "{}价格：\n{} / {}，共{}天"
+
+msgid "TR_TARIF_ALL"
+msgstr "全部模型"
+
+msgid "TR_TARRIF_DONT_LOAD"
+msgstr "很抱歉，套餐加载失败。请稍后重试或联系{}"
+
+msgid "TR_SUBSCRIPTION_RENEWAL"
+msgstr "您已拥有此订阅，还剩{}天有效期。\n如需提前续费请选择支付方式："
+
+msgid "TR_BALANCE_MES"
+msgstr "前10大热门币种：\n{}\n收藏：\n{}\n\n最近更新时间（设置时区 /set_time_zone）：\n{}"
+
+msgid "TR_PARENT_COIN"
+msgstr "1 {} -> {} {}"
+
+msgid "TR_NO_FAVORITES"
+msgstr "暂无收藏币种"
+
+msgid "TR_MENU_TIMEZONE"
+msgstr "你可以在这里设置时区。这对于信息准确显示很重要。\n请选择合适区域："
+
+msgid "TR_SUCCESSFUL_TIMEZONE"
+msgstr "时区设置已成功应用！"
+
+msgid "TR_"
+msgstr ""

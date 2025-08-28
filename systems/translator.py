@@ -69,11 +69,3 @@ class Locale:
 
 
 
-# dir = 'locale/LC_MESSAGES/'
-# locale = Locale(dir)
-
-# print( locale.find_translation('ru_RU', 'No') )
-# print(locale.find_translation('ru_RU', 'TR_START_MESSAGE').format("Lana"))
-
-
-

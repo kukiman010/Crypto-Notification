@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone, timedelta
 from systems.logger         import LoggerSingleton
 
 _logger = LoggerSingleton.new_instance('logs/log_gpt.log')
@@ -8,6 +9,7 @@ def get_time_string(self):
         time_struct = time.localtime(current_time)
         milliseconds = int((current_time - int(current_time)) * 1000)
         return time.strftime("%Y%m%d_%H%M%S", time_struct) + f"_{milliseconds:03d}"
+
 
 
 def send_text(telegram_bot, chat_id, text, reply_markup=None, id_message_for_edit=None):
@@ -52,3 +54,17 @@ def send_text(telegram_bot, chat_id, text, reply_markup=None, id_message_for_edi
                 sent_message_id = msg.message_id
 
     return sent_message_id
+
+
+
+def get_current_time_with_utc_offset(offset_hours: int) -> str:
+    tz = timezone(timedelta(hours=offset_hours))
+    dt = datetime.now(tz)
+
+    zone_str = ''
+    if offset_hours > 0:
+        zone_str = '(UTC +{})'.format(offset_hours)
+    else:
+        zone_str = '(UTC {})'.format(offset_hours)
+
+    return dt.strftime("%Y-%m-%d %H:%M:%S") +'  ' + zone_str
