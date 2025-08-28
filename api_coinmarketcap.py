@@ -338,8 +338,8 @@ class CoinMarketCapApi:
             self._index_by_symbol = new_index
             self._last_update_ts = time.time()
 
-        if self.verbose:
-            print(f"[CMC] cache refreshed: {len(new_list)} assets @ {convert_upper}")
+        # if self.verbose:
+            # print(f"[CMC] cache refreshed: {len(new_list)} assets @ {convert_upper}")
 
     @staticmethod
     def _brief_to_dict(cb: CryptoBrief) -> Dict[str, Any]:

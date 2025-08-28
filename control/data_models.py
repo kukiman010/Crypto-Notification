@@ -153,37 +153,6 @@ class tariffs_api:
 
 
 
-# @dataclass(frozen=True)
-# class coin_model:
-#     def __init__(self) -> None:
-#         self.coinId = 0
-#         self.symbol = ''
-#         self.name = ''
-#         self.convert_currency = ''
-#         self.price = 0.0
-#         self.last_update = None
-
-#     def set_model(self, coinId, symbol, name, convert_currency, price, last_update):
-#         self.coinId = coinId
-#         self.symbol = symbol
-#         self.name = name
-#         self.convert_currency = convert_currency
-#         self.price = price
-#         self.last_update = last_update
-
-#     def get_coinId(self):
-#         return self.coinId
-#     def get_symbol(self):
-#         return self.symbol
-#     def get_name(self):
-#         return self.name
-#     def get_convert_currency(self):
-#         return self.convert_currency
-#     def get_price(self):
-#         return self.price
-#     def get_last_update(self):
-#         return self.last_update
-
 @dataclass(frozen=True)
 class CryptoBrief:
     """

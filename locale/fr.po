@@ -1,0 +1,198 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: tg_base\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-1 12:00+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: French <fr@li.org>\n"
+"Language: fr_FR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "TR_START_MESSAGE"
+msgstr "Bonjour, {} !\n\nJe suis un bot qui vous aide à suivre les cours des cryptomonnaies. Votre langue a été sélectionnée automatiquement comme {} (vous pouvez la changer avec la commande /set_language). Le fuseau horaire est réglé sur {} pour un affichage correct de l'heure — vous pouvez le modifier avec /set_time_zone si besoin.\n\nVoici ce que je peux faire :\n- Afficher les cryptomonnaies populaires\n- Voir vos monnaies favorites\n- Définir des alertes de prix\nBesoin d'aide ? Tapez /menu !"
+
+msgid "TR_GET_LOG"
+msgstr "Vos {} derniers journaux\n\n{}"
+
+msgid "TR_GET_LOG_POST"
+msgstr "Vos {} derniers journaux pour la requête {}\n\n{}"
+
+msgid "TR_ERROR_SINTAX"
+msgstr "Syntaxe invalide\nplus d’informations dans /help"
+
+msgid "TR_WAIT_POST"
+msgstr "Veuillez patienter, votre demande est en cours de traitement..."
+
+msgid "TR_ERROR_GET_RESULT"
+msgstr "Erreur lors de l'obtention du résultat : {}"
+
+msgid "TR_START_DECODE_VOICE"
+msgstr "Traitement commencé !"
+
+msgid "TR_ERROR"
+msgstr "Erreur !"
+
+msgid "TR_ERROR_OPENAI"
+msgstr "Désolé, erreur OpenAI : {}"
+
+msgid "TR_YES"
+msgstr "Oui"
+
+msgid "TR_NO"
+msgstr "Non"
+
+msgid "TR_SETTING"
+msgstr "Paramètres du bot"
+
+msgid "TR_DONT_RELEASES_FUNC"
+msgstr "Pas encore implémenté !"
+
+msgid "TR_ERROR_NOT_CHANGE_LANGUAGE"
+msgstr "Désolé, mais le changement de langue est actuellement indisponible !"
+
+msgid "TR_NEED_PERMISSION"
+msgstr "Privilèges insuffisants !"
+
+msgid "TR_USE_NEW_ASSISTANT"
+msgstr "Nouvel assistant sélectionné !"
+
+msgid "TR_SUCCESS"
+msgstr "Succès"
+
+msgid "TR_SYSTEM_LANGUAGE_CHANGE"
+msgstr "Langue du système modifiée !"
+
+msgid "TR_SYSTEM_LANGUAGE_SUPPORT"
+msgstr "Langue du système non prise en charge !"
+
+msgid "TR_FAILURE"
+msgstr "Échec"
+
+msgid "TR_NO_PERMITION"
+msgstr "Cette commande n’est disponible que pour les administrateurs"
+
+msgid "TR_ANSWER_SET_SETTINGS"
+msgstr "Êtes-vous sûr de vouloir appliquer les paramètres ?"
+
+msgid "TR_NEW_OLD_CHANGES"
+msgstr "{} : ancien : {} -> nouveau : {}"
+
+msgid "TR_DATA_IS_UP_TO_DATE"
+msgstr "Données à jour"
+
+msgid "DATA_IS_NOT_RELEVANT"
+msgstr "Les données ne sont pas pertinentes :\n{}\nAppliquer les modifications ?"
+
+msgid "TR_MENU_LANGUAGE"
+msgstr "Paramètres de langue"
+
+msgid "TR_MENU_PROMT"
+msgstr "Paramètres du prompt"
+
+msgid "TR_MENU_HELP"
+msgstr "Aide"
+
+msgid "TR_MENU_PREMIUM"
+msgstr "Premium"
+
+msgid "TR_MENU_SUPPORT"
+msgstr "Support"
+
+msgid "TR_MENU"
+msgstr "Retour au menu"
+
+msgid "TR_BACK"
+msgstr "Retour"
+
+msgid "TR_SELECT_LANGUAGE"
+msgstr "Sélectionnez une langue parmi les disponibles"
+
+msgid "TR_BUTTOM_APPLY"
+msgstr "Appliquer ?"
+
+msgid "TR_UNDO"
+msgstr "Annuler"
+
+msgid "TR_ON"
+msgstr "Activer"
+
+msgid "TR_OFF"
+msgstr "Désactiver"
+
+msgid "TR_PAYMENT_LOCK_FOR_BANED_USER"
+msgstr "Le paiement n’est pas disponible pour les utilisateurs bannis"
+
+msgid "TR_PAYMENT_SYSTEM_EMPTY"
+msgstr "Impossible de sélectionner un mode de paiement actuellement"
+
+msgid "TR_SELECT_PAYMENT"
+msgstr "Sélectionnez un mode de paiement :"
+
+msgid "TR_SELECT_TARIFF"
+msgstr "Vous pouvez choisir une offre via ce lien {}"
+
+msgid "TR_PAYMENT_SYSTEM_DONT_WORK_NOW"
+msgstr "Les paiements ne sont pas acceptés pour le moment."
+
+msgid "TR_SUBSCRIBE_FOR_ONE_MOUNTH"
+msgstr "Souscrire pour {} jours !"
+
+msgid "TR_PAY"
+msgstr "Payer {}{}"
+
+msgid "TR_CHECK_PAY"
+msgstr "Vérifier le paiement"
+
+msgid "TR_SUCCESSFUL_PAYMENT"
+msgstr "Paiement réussi !\nDe nouvelles fonctionnalités sont maintenant disponibles."
+
+msgid "TR_SUBSCRIPRION_ENDED"
+msgstr "Malheureusement, votre abonnement a expiré. Vous pouvez le renouveler dans la section /premium."
+
+msgid "TR_DUBLICATE_PAY"
+msgstr "Malheureusement, vous ne pouvez pas payer deux fois avec ce lien."
+
+msgid "TR_UPDATE_DATA"
+msgstr "Données de langues, modèles, systèmes de paiement et minuteur de vérification d’abonnement seront mis à jour depuis la base !"
+
+msgid "TR_TARIF_ONE_DESCRIPTION"
+msgstr "L’offre Ultimate donne accès à toutes les fonctionnalités. Choisissez un mode de paiement :"
+
+msgid "TR_TARIFFS_MENU"
+msgstr "Les offres suivantes sont disponibles :\n{}\n\nSélectionnez une offre pour payer."
+
+msgid "TR_TARIF_PATERN"
+msgstr "{} inclut :\n{}\npour {} / {} sur {} jours"
+
+msgid "TR_TARIF_PATERN_EMPTY"
+msgstr "{} pour :\n{} / {} sur {} jours"
+
+msgid "TR_TARIF_ALL"
+msgstr "Tous les modèles"
+
+msgid "TR_TARRIF_DONT_LOAD"
+msgstr "Malheureusement, les offres n’ont pas été chargées. Réessayez plus tard ou écrivez à {}"
+
+msgid "TR_SUBSCRIPTION_RENEWAL"
+msgstr "Vous avez déjà cet abonnement. Il est valable encore {} jours.\nSi vous souhaitez le renouveler à l’avance, choisissez un mode de paiement :"
+
+msgid "TR_BALANCE_MES"
+msgstr "Top 10 des pièces populaires :\n{}\nFavoris :\n{}\n\nDernière mise à jour (définir le fuseau horaire avec /set_time_zone) :\n{}"
+
+msgid "TR_PARENT_COIN"
+msgstr "1 {} -> {} {}"
+
+msgid "TR_NO_FAVORITES"
+msgstr "Aucune crypto favorite"
+
+msgid "TR_MENU_TIMEZONE"
+msgstr "Vous pouvez ici indiquer votre fuseau horaire. Cela est nécessaire pour l’affichage correct des informations.\nSélectionnez une zone convenable :"
+
+msgid "TR_SUCCESSFUL_TIMEZONE"
+msgstr "Paramètres du fuseau horaire appliqués avec succès !"
+
+msgid "TR_"
+msgstr ""

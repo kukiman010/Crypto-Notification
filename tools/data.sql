@@ -8,9 +8,10 @@ create table users(
     type                    TEXT,
     language_code           TEXT,
     favorit_coins           TEXT[],
-    wait_action             TEXT,
+    wait_action             TEXT DEFAULT '',
     last_balance_mes_id     BIGINT DEFAULT 0,
     count_post_balance_mes  INT DEFAULT 0,
+    code_time               INT DEFAULT 3,
     last_login              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     registration            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     id                      BIGSERIAL PRIMARY KEY
@@ -34,6 +35,15 @@ create table users_notification
     id                      BIGSERIAL PRIMARY KEY
 );
 
+create table time_zone
+(
+    code_time               INT UNIQUE,
+    _isView                 BOOLEAN DEFAULT TRUE,
+    def_lang_code           TEXT,                   --- неужен для более удобно определения временной зоны по языку интерфейса пользователя
+    description             TEXT
+);
+
+
 -- create table premium
 -- (
 --     prem_id
@@ -49,7 +59,8 @@ CREATE OR REPLACE FUNCTION add_user(
     p_user_id bigint,
     p_user_name text,
     p_type text,
-    p_language_code text
+    p_language_code text,
+    p_time_zone int
 ) RETURNS void AS $$
 DECLARE
     tariff_val int;
@@ -58,8 +69,8 @@ BEGIN
     SELECT value::int INTO tariff_val FROM default_data WHERE key = 'tariff';
 
     -- Добавляем пользователя
-    INSERT INTO users (user_id, user_name, tariff, type, language_code)
-    VALUES (p_user_id, p_user_name, tariff_val, p_type, p_language_code)
+    INSERT INTO users (user_id, user_name, tariff, type, language_code, code_time)
+    VALUES (p_user_id, p_user_name, tariff_val, p_type, p_language_code, p_time_zone)
     ON CONFLICT (user_id) DO NOTHING;  -- избежать дублей
 END;
 $$ LANGUAGE plpgsql;
@@ -190,7 +201,7 @@ insert into default_data values ('tariff',                          '1');
 insert into default_data values ('global_payment',                  'True');
 insert into default_data values ('last_activity_autoupdate',        '5');
 insert into default_data values ('support_chat',                    '@assistant_gpts_help');
-insert into default_data values ('time_zone',                       'UTC');
+insert into default_data values ('time_zone',                       '0');
 
 
 insert into languages values ('Chine',      'zh', True);
@@ -198,3 +209,30 @@ insert into languages values ('Espanol',    'es', True);
 insert into languages values ('English',    'en', True);
 insert into languages values ('Russian',    'ru', True);
 insert into languages values ('France',     'fr', True);
+
+
+insert into time_zone values (-12,  True,   'en',           'UTC -12 Baker Island');
+insert into time_zone values (-11,  True,   'en,sm',        'UTC -11 American Samoa, Niue');
+insert into time_zone values (-10,  True,   'en,fr,ty',     'UTC -10 Hawaii, Tahiti');
+insert into time_zone values (-9,   True,   'en,fr',        'UTC -9 Alaska, Marquesas Islands');
+insert into time_zone values (-8,   True,   'en,fr',        'UTC -8 Los Angeles, Vancouver');
+insert into time_zone values (-7,   True,   'en',           'UTC -7 Denver, Phoenix');
+insert into time_zone values (-6,   True,   'en,es',        'UTC -6 Chicago, Ciudad de México');
+insert into time_zone values (-5,   True,   'en,es',        'UTC -5 New York, Bogotá');
+insert into time_zone values (-4,   True,   'es,pt',        'UTC -4 Caracas, Santiago');
+insert into time_zone values (-3,   True,   'es,pt',        'UTC -3 Buenos Aires, Rio de Janeiro');
+insert into time_zone values (-2,   True,   'en',           'UTC -2 South Georgia and the South Sandwich Islands');
+insert into time_zone values (-1,   True,   'pt,es',        'UTC -1 Açores, Cabo Verde');
+insert into time_zone values (0,    True,   'en,pt',        'UTC 0 London, Lisboa');
+insert into time_zone values (1,    True,   'de,fr,it,nl',  'UTC +1 Berlin, Paris');
+insert into time_zone values (2,    True,   'el,uk,ru',     'UTC +2 Αθήνα, Київ');
+insert into time_zone values (3,    True,   'ru,ar',        'UTC +3 Москва, الرياض‎');
+insert into time_zone values (4,    True,   'ar,az',        'UTC +4 دبي, Bakı');
+insert into time_zone values (5,    True,   'ru,ur',        'UTC +5 Екатеринбург, سلام آباد‎');
+insert into time_zone values (6,    True,   'kk,ky,ru',     'UTC +6 Алматы, Бишкек');
+insert into time_zone values (7,    True,   'th,id,vi',     'UTC +7 กรุงเทพมหานคร, Jakarta');
+insert into time_zone values (8,    True,   'zh,en',        'UTC +8 北京, Perth');
+insert into time_zone values (9,    True,   'ja,ko',        'UTC +9 東京, 서울');
+insert into time_zone values (10,   True,   'en,ru',        'UTC +10 Sydney, Владивосток');
+insert into time_zone values (11,   True,   'en',           'UTC +11 Honiara, Port Vila');
+insert into time_zone values (12,   True,   'en',           'UTC +12 Auckland, Suva');
