@@ -1,4 +1,4 @@
-
+import io
 import requests
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -60,7 +60,7 @@ class CoinGeckoHistory:
         plt.grid(True)
         plt.tight_layout()
 
-        # Аннотация: просто текст цены у последней точки, БЕЗ стрелки
+        # Аннотация: просто текст цены у последней точки
         last_x = xs[-1]
         last_y = ys[-1]
         ax.text(
@@ -70,16 +70,20 @@ class CoinGeckoHistory:
             bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3', alpha=0.7)
         )
 
-        plt.show()
+        bio = io.BytesIO()
+        plt.savefig(bio, format='png', bbox_inches='tight')
+        plt.close(fig)
+        bio.seek(0)
+        return bio
 
         
 
-# Пример использования:
-if __name__ == "__main__":
-    cg = CoinGeckoHistory()
-    # cg.plot_history("BTC", days="1", vs_currency="usd")
-    cg.plot_history("BTC", days="7", vs_currency="usd")
-#     # cg.plot_history("BTC", days="180", vs_currency="usd")
-#     # cg.plot_history("BTC", days="max", vs_currency="usd")
+# # Пример использования:
+# if __name__ == "__main__":
+#     cg = CoinGeckoHistory()
+#     # cg.plot_history("BTC", days="1", vs_currency="usd")
+#     cg.plot_history("BTC", days="7", vs_currency="usd")
+# #     # cg.plot_history("BTC", days="180", vs_currency="usd")
+# #     # cg.plot_history("BTC", days="max", vs_currency="usd")
 
 

@@ -17,8 +17,9 @@ from control.languages      import languages_api
 from control.user           import User
 
 from api_coinmarketcap      import CoinMarketCapApi
+from api_coin_history       import CoinGeckoHistory
 from systems.schedulertimer import generate_schedule, TimerScheduler
-from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset
+from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim
 
 
 
@@ -56,6 +57,7 @@ if TOKEN_COIN_MARKET == '':
 #     exit 
 
 _coinApi = CoinMarketCapApi( api_key=TOKEN_COIN_MARKET, default_convert="USD", cache_limit=200, verbose=True )
+_coinHistoreApi = CoinGeckoHistory()
 # _coinApi.force_refresh()
 _time_zone_api = TimeZone_api( _db.get_time_zones() )
 _languages_api = languages_api( _db.get_languages() )
@@ -198,10 +200,24 @@ def debug_callback(call):
     language_pattern = r'^set_lang_model_(\d+)$'
     language_match = re.match(language_pattern, key)
 
+    add_favorit_coin = r'^add_favorit_coin_(\S+)$'
+    add_favorit_match = re.match(add_favorit_coin, key)
+
+    del_favorit_coin = r'^del_favorit_coin_(\S+)$'
+    del_favorit_match = re.match(del_favorit_coin, key)
+    
+
 
     if key == 'menu':
         _bot.answer_callback_query(call.id, text = '')
         # main_menu(user, chat_id, message_id)
+
+    elif key == 'find_coin':
+        _bot.answer_callback_query(call.id, text = '')
+        _db.update_user_action(chat_id, 'find_coin')
+
+        send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_FIND_COIN_LABEL'))
+
 
     elif timezone_match:
         _bot.answer_callback_query(call.id, text = '')
@@ -222,11 +238,34 @@ def debug_callback(call):
             send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_SYSTEM_LANGUAGE_SUPPORT'), id_message_for_edit= message_id)
             _bot.answer_callback_query(call.id, _locale.find_translation(user.get_language(), 'TR_FAILURE'))
 
+    
+    elif add_favorit_match:
+        _bot.answer_callback_query(call.id, text = '')
+        coin_symbol = add_favorit_match.group(1)
+        _db.add_favorit_coin(user.get_user_id(), coin_symbol)
+        send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_MES_ADD_FAVORIT_COIN').format(coin_symbol), id_message_for_edit= message_id)
+
+    elif del_favorit_match:
+        _bot.answer_callback_query(call.id, text = '')
+        coin_symbol = del_favorit_match.group(1)
+        _db.remove_favorit_coin(user.get_user_id(), coin_symbol)
+        send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_MES_DEL_FAVORIT_COIN').format(coin_symbol), id_message_for_edit= message_id)
+
 
     else:
         t_mes = _locale.find_translation(user.get_language(), 'TR_ERROR')
         _bot.answer_callback_query(call.id, text = t_mes)
 
+
+
+@_bot.message_handler(func=lambda message: True)
+def handle_user_message(message):
+    user = user_verification(message)
+
+    action = user.get_action()
+    if action != '' and action != None:
+        action_handler(user.get_user_id(), user, action, message.text)
+        return
 
 
 # def check_and_notify(user_id, coin, current_price):
@@ -249,8 +288,8 @@ def balance_user(userId, automatically_call:bool = True):
     # if not user.is_valid():
         # return
 
-    t_mes = _locale.find_translation('ru', 'TR_BALANCE_MES')
-    pattern_coin = _locale.find_translation('ru', 'TR_PARENT_COIN')
+    t_mes = _locale.find_translation(user.get_language(), 'TR_BALANCE_MES')
+    pattern_coin = _locale.find_translation(user.get_language(), 'TR_PARENT_COIN')
 
     coins = _coinApi.get_top(10)
     coins_mes = ''
@@ -259,14 +298,14 @@ def balance_user(userId, automatically_call:bool = True):
         s = node.symbol
         if len(node.symbol) == 3:
             s += ' '
-        coins_mes += str( pattern_coin.format( s, node.price, node.convert_currency) + '\n' )
+        coins_mes += str( pattern_coin.format( s, crypto_trim(node.price), node.convert_currency) + '\n' )
 
     favorites = ''
     # for coint in user.get_favorites_coins()
         # favorites =
 
     if not favorites:
-        favorites = _locale.find_translation('ru', 'TR_NO_FAVORITES')
+        favorites = _locale.find_translation(user.get_language(), 'TR_NO_FAVORITES')
 
     isNew = False
 
@@ -276,19 +315,20 @@ def balance_user(userId, automatically_call:bool = True):
         isNew = True
         
     last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_FIND_COIN'),    callback_data='find_coin') )
+
         
     if isNew or automatically_call == False:
-        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin)  )
+        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), reply_markup=markup  )
     else:
-        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), id_message_for_edit = user.get_last_balance_mes_id() )
+        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), reply_markup=markup, id_message_for_edit = user.get_last_balance_mes_id() )
 
     if message_id != None:
         _db.update_last_balance_mes_id(userId, message_id)
 
     # print()
-
-
-    
 
 
 
@@ -327,6 +367,7 @@ def user_verification(message) -> User:
     return user
 
 
+
 def user_verification_easy(userId) -> User:
     user = User()
     if _db.find_user(userId) == False:
@@ -336,6 +377,7 @@ def user_verification_easy(userId) -> User:
         _db.update_last_login(user.get_user_id())
         return user
     
+
 
 def get_time_zone(user: User, message_id:int = -1):
     label = _locale.find_translation(user.get_language(), 'TR_MENU_TIMEZONE')
@@ -371,6 +413,35 @@ def get_language(user: User, message_id:int = -1):
     else:
         send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
 
+
+
+def action_handler(chatId, user:User, action, text):
+
+    if action == 'find_coin':
+        _db.update_user_action(user.get_user_id(), '')
+
+        coin = _coinApi.find_coin(text)
+
+        if coin == None:
+            print('error in action_handler')
+
+        last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
+
+        # mes = _locale.find_translation('ru', 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, coin.price, coin.symbol, coin.convert_currency, coin.last_updated )
+        mes = _locale.find_translation('ru', 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, crypto_trim(coin.price), coin.symbol, coin.convert_currency, last_update_coin )
+
+        photo_byte = _coinHistoreApi.plot_history( coin.symbol, 7, coin.convert_currency.lower() )
+
+        markup = types.InlineKeyboardMarkup()
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_ADD_FAVORIT_COIN'),    callback_data='add_favorit_coin_{}'.format(coin.symbol)) )
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_DEL_FAVORIT_COIN'),    callback_data='del_favorit_coin_{}'.format(coin.symbol)) )
+
+        send_text(_bot, chatId, mes, markup, photo=photo_byte)
+
+
+    else:
+        _db.update_user_action( user.get_user_id(), '' )
+        _logger.add_critical('There is no processing of such a scenario: {}, the action will be reset from user {}'.format(action, chatId))
 
 
 

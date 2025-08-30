@@ -90,7 +90,9 @@ class dbApi:
         query = "update users set language_code='{}' where user_id={};".format(lang_code, userId)
         self.db.execute_query(query)
 
-
+    def update_user_action(self, userId, action):
+        query = "SELECT update_wait_action({}, '{}'); ".format(userId, action)
+        self.db.execute_query(query)
 
 
     def __del__(self):

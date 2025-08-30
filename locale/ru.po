@@ -194,5 +194,26 @@ msgstr "Тут можно указать вашу временную зону (t
 msgid "TR_SUCCESSFUL_TIMEZONE"
 msgstr "Настройки временной зоны успешно применены!"
 
+msgid "TR_FIND_COIN"
+msgstr "Найти монету"
+
+msgid "TR_FIND_COIN_LABEL"
+msgstr "Введите название монеты или ее сокращеный вариант, например: bitcoin или btc. \nОжидаем название"
+
+msgid "TR_ADD_FAVORIT_COIN"
+msgstr "Добавить монету в избраное"
+
+msgid "TR_DEL_FAVORIT_COIN"
+msgstr "Удалить монету из избраного"
+
+msgid "TR_COIN_INFO"
+msgstr "Монета: {} / {} \nid монеты: {} \n\nЦена: {} {} за 1 {}\n\nПоследнее обновление:\n{}"
+
+msgid "TR_MES_ADD_FAVORIT_COIN"
+msgstr "Монета {} добавлено в избранное."
+
+msgid "TR_MES_DEL_FAVORIT_COIN"
+msgstr "Монета {} удалена из избранного."
+
 msgid "TR_"
 msgstr ""

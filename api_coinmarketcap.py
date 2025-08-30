@@ -351,6 +351,75 @@ class CoinMarketCapApi:
             "convert_currency": cb.convert_currency,
             "last_updated": cb.last_updated,
         }
+    
+
+    def find_coin(self, name_or_symbol: str, *, convert: Optional[str] = None) -> Optional[CryptoBrief]:
+        """
+        Поиск монеты по тикеру (BTC) или названию (bitcoin).
+        Сначала ищет в кеше. Если не нашёл — запрос к CoinMarketCap API (listings).
+        Возвращает CryptoBrief или None.
+        """
+        if not name_or_symbol:
+            return None
+
+        lookup = name_or_symbol.strip().lower()
+        if not self._cache_data:
+            self._refresh_once_blocking(convert=convert or self.default_convert)
+
+        # 1. Пробуем по символу в кеше
+        cb = self.get_by_symbol(lookup.upper())
+        if cb:
+            return cb
+
+        # 2. Пробуем по имени в кеше
+        with self._lock:
+            for coin in self._cache_data:
+                if coin.name.lower() == lookup:
+                    return coin
+
+        # 3. Если не нашли — запрос к API (listings)
+        try:
+            # Используем стандартный механизм обновления с ограничением в 1000 (максимум по нужде)
+            params = {
+                "start": "1",
+                "limit": "300",  # Магия: достаточно для поиска по названию
+                "convert": convert or self.default_convert,
+                "sort": self.sort,
+                "sort_dir": self.sort_dir,
+            }
+            headers = {
+                "Accepts": "application/json",
+                "X-CMC_PRO_API_KEY": self.api_key,
+            }
+            url = self.API_BASE + self.ENDPOINT_LISTINGS
+
+            resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+            resp.raise_for_status()
+            payload = resp.json()
+            coins = payload.get("data") or []
+            convert_upper = (convert or self.default_convert).upper()
+            for c in coins:
+                if (
+                    c["symbol"].lower() == lookup
+                    or c["name"].lower() == lookup
+                ):
+                    q = c.get("quote", {}).get(convert_upper)
+                    if not q:
+                        continue
+                    return CryptoBrief(
+                        id=int(c["id"]),
+                        name=c["name"],
+                        symbol=c["symbol"].upper(),
+                        price=float(q["price"]),
+                        convert_currency=convert_upper,
+                        last_updated=c.get("last_updated") or "",
+                    )
+        except Exception as ex:
+            if self.verbose:
+                print(f"find_coin error: {ex}")
+            return None
+
+        return None
 
 
 # ------------------------- Пример использования -------------------------
