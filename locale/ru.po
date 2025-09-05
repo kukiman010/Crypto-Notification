@@ -210,10 +210,16 @@ msgid "TR_COIN_INFO"
 msgstr "Монета: {} / {} \nid монеты: {} \n\nЦена: {} {} за 1 {}\n\nПоследнее обновление:\n{}"
 
 msgid "TR_MES_ADD_FAVORIT_COIN"
-msgstr "Монета {} добавлено в избранное."
+msgstr "Монета {} добавлена в избранное."
 
 msgid "TR_MES_DEL_FAVORIT_COIN"
 msgstr "Монета {} удалена из избранного."
+
+msgid "TR_ADD_NOTIFICATION"
+msgstr "Добавить уведомление"
+
+msgid "TR_NOT_FIND_COIN"
+msgstr "Неверный формат данных. \nМы не нашли такую монету: {}"
 
 msgid "TR_"
 msgstr ""

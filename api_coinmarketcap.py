@@ -422,6 +422,138 @@ class CoinMarketCapApi:
         return None
 
 
+
+    def add_symbols_to_cache(
+        self,
+        symbols: Iterable[str],
+        *,
+        convert: Optional[str] = None,
+        replace_existing: bool = True,
+    ) -> Tuple[CryptoBrief, ...]:
+        """
+        Добавить/обновить в общем кеше монеты по списку тикеров с помощью /cryptocurrency/quotes/latest.
+
+        Важно:
+          - Кеш в этом клиенте всегда хранится в self.default_convert для согласованности.
+            Если передан другой convert, он будет проигнорирован (с предупреждением в verbose).
+          - Сетевая часть выполняется вне лока; установка кеша — атомарно под RLock.
+        
+        :param symbols: Итерабель со строковыми тикерами, напр. ['BTC', 'TON'].
+        :param convert: Игнорируется для кеша; используется self.default_convert.
+        :param replace_existing: Если True — обновляет существующие записи; если False — добавляет только новые.
+        :return: Полный снимок кеша (tuple[CryptoBrief, ...]) после обновления.
+
+        Добавить/обновить в общем кеше монеты по списку тикеров с помощью /cryptocurrency/quotes/latest.
+        Будет обращаться к API только по отсутствующим тикерам!
+
+        """
+        # 1. Нормализация входа
+        unique_symbols = sorted({(s or "").strip().upper() for s in symbols if s and s.strip()})
+        if not unique_symbols:
+            return self.get_all_cached(as_dicts=False)
+
+        if not self._cache_data:
+            self._refresh_once_blocking(convert=self.default_convert)
+
+        convert_upper = self.default_convert.upper()
+        if convert and convert.strip().upper() != convert_upper and self.verbose:
+            print(f"[CMC] add_symbols_to_cache: requested convert '{convert}' != default '{convert_upper}', using default.")
+
+        # 2. Ищем, какие реально надо добавить (отсутствующие в кеше)
+        with self._lock:
+            already_in_cache = set(self._index_by_symbol.keys())
+        symbols_to_query = [sym for sym in unique_symbols if sym not in already_in_cache]
+
+        if not symbols_to_query:
+            # Всё уже есть, просто вернуть кеш
+            return self.get_all_cached(as_dicts=False)
+
+        # 3. Только для недостающих тикеров — делаем quotes/latest
+        headers = {
+            "Accepts": "application/json",
+            "X-CMC_PRO_API_KEY": self.api_key,
+        }
+        params = {
+            "symbol": ",".join(symbols_to_query),
+            "convert": convert_upper,
+            "skip_invalid": "true",
+        }
+        url = self.API_BASE + self.ENDPOINT_QUOTES
+
+        resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+        if resp.status_code == 429:
+            retry_after = resp.headers.get("Retry-After")
+            delay = int(retry_after) if retry_after and retry_after.isdigit() else max(5, self._backoff_sec or 10)
+            if self.verbose:
+                print(f"[CMC] add_symbols_to_cache rate-limited, sleep {delay}s")
+            time.sleep(delay)
+            resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+
+        resp.raise_for_status()
+        payload = resp.json()
+        status = payload.get("status", {})
+        if status.get("error_code", 0) != 0:
+            raise RuntimeError(f"API error: {status.get('error_message')}")
+
+        data = payload.get("data") or {}
+        new_items: Dict[str, CryptoBrief] = {}
+        for sym, info in data.items():
+            quote = (info.get("quote") or {}).get(convert_upper)
+            if not quote or "price" not in quote:
+                continue
+
+        if not new_items:
+            # Нечего мёрджить — вернуть текущий снимок
+            return self.get_all_cached(as_dicts=False)
+
+        # Атомарная установка кеша
+        with self._lock:
+            current_list = list(self._cache_data)
+            index = dict(self._index_by_symbol)
+
+            for sym, cb in new_items.items():
+                if sym in index:
+                    if replace_existing:
+                        pos = index[sym]
+                        current_list[pos] = cb
+                else:
+                    index[sym] = len(current_list)
+                    current_list.append(cb)
+
+            new_tuple = tuple(current_list)
+            # Переиндексация на всякий случай (индексы могли сдвинуться)
+            new_index = {c.symbol: i for i, c in enumerate(new_tuple)}
+
+            self._cache_data = new_tuple
+            self._index_by_symbol = new_index
+            self._last_update_ts = time.time()
+
+            return self._cache_data
+        
+
+
+    def get_by_symbols(self, symbols: list[str]) -> Tuple[CryptoBrief, ...]:
+        """
+        Быстрый доступ к монетам из кеша по массиву символов.
+        Не делает сетевые запросы. Возвращает tuple найденных CryptoBrief в порядке передачи.
+        Символы нормализуются к верхнему регистру.
+
+        :param symbols: list[str] тикеров, например ['BTC', 'ETH', 'TON']
+        :return: tuple[CryptoBrief, ...] только найденные в кеше
+        """
+        if not symbols:
+            return tuple()
+        if not self._cache_data:
+            self._refresh_once_blocking(convert=self.default_convert)
+
+        result = []
+        for sym in symbols:
+            idx = self._index_by_symbol.get((sym or "").upper())
+            if idx is not None:
+                result.append(self._cache_data[idx])
+        return tuple(result)
+
+
 # ------------------------- Пример использования -------------------------
 
 # if __name__ == "__main__":

@@ -147,27 +147,33 @@ CREATE OR REPLACE FUNCTION add_favorit_coin(p_user_id BIGINT, p_coin TEXT)
 RETURNS void AS $$
 BEGIN
     UPDATE users
-    SET favorit_coins = 
-        ARRAY(
-            SELECT DISTINCT unnest(favorit_coins || p_coin)
+    SET favorit_coins = (
+        SELECT ARRAY(
+            SELECT DISTINCT unnest(
+                COALESCE(favorit_coins, ARRAY[]::TEXT[]) || p_coin
+            )
         )
-    WHERE user_id = p_user_id 
-      AND NOT favorit_coins @> ARRAY[p_coin];
+    )
+    WHERE user_id = p_user_id
+      AND NOT (COALESCE(favorit_coins, ARRAY[]::TEXT[]) @> ARRAY[p_coin]);
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 CREATE OR REPLACE FUNCTION remove_favorit_coin(p_user_id BIGINT, p_coin TEXT)
 RETURNS void AS $$
 BEGIN
     UPDATE users
-    SET favorit_coins = ARRAY(
-            SELECT unnest(favorit_coins)
+    SET favorit_coins = (
+        SELECT ARRAY(
+            SELECT unnest(COALESCE(favorit_coins, ARRAY[]::TEXT[]))
             EXCEPT
             SELECT p_coin
         )
-    WHERE user_id = p_user_id 
-      AND favorit_coins @> ARRAY[p_coin];
+    )
+    WHERE user_id = p_user_id
+      AND COALESCE(favorit_coins, ARRAY[]::TEXT[]) @> ARRAY[p_coin];
 END;
 $$ LANGUAGE plpgsql;
 
@@ -193,6 +199,46 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION increment_post_balance_mes(p_user_id BIGINT)
+RETURNS void AS $$
+BEGIN
+    UPDATE users
+    SET count_post_balance_mes = count_post_balance_mes + 1
+    WHERE user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION get_unique_favorit_coins(days INT DEFAULT 0)
+RETURNS TEXT[] AS $$
+DECLARE
+    unique_coins TEXT[];
+BEGIN
+    IF days > 0 THEN
+        SELECT ARRAY(
+            SELECT DISTINCT unnest_coin
+            FROM users, unnest(favorit_coins) AS unnest_coin
+            WHERE favorit_coins IS NOT NULL
+              AND last_login >= NOW() - INTERVAL '1 day' * days
+            ORDER BY unnest_coin
+        )
+        INTO unique_coins;
+    ELSE
+        SELECT ARRAY(
+            SELECT DISTINCT unnest_coin
+            FROM users, unnest(favorit_coins) AS unnest_coin
+            WHERE favorit_coins IS NOT NULL
+            ORDER BY unnest_coin
+        )
+        INTO unique_coins;
+    END IF;
+    RETURN unique_coins;
+END;
+$$ LANGUAGE plpgsql;
 
 
 

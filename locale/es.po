@@ -194,5 +194,32 @@ msgstr "Aquí puedes establecer tu zona horaria (time zone). Esto es necesario p
 msgid "TR_SUCCESSFUL_TIMEZONE"
 msgstr "¡Configuración de la zona horaria aplicada con éxito!"
 
+msgid "TR_FIND_COIN"
+msgstr "Encontrar moneda"
+
+msgid "TR_FIND_COIN_LABEL"
+msgstr "Ingrese el nombre o la abreviatura de la moneda, por ejemplo: bitcoin o btc. \nEsperando nombre"
+
+msgid "TR_ADD_FAVORIT_COIN"
+msgstr "Agregar moneda a favoritos"
+
+msgid "TR_DEL_FAVORIT_COIN"
+msgstr "Eliminar moneda de favoritos"
+
+msgid "TR_COIN_INFO"
+msgstr "Moneda: {} / {} \nid de la moneda: {} \n\nPrecio: {} {} por 1 {}\n\nÚltima actualización:\n{}"
+
+msgid "TR_MES_ADD_FAVORIT_COIN"
+msgstr "Moneda {} agregada a favoritos."
+
+msgid "TR_MES_DEL_FAVORIT_COIN"
+msgstr "Moneda {} eliminada de favoritos."
+
+msgid "TR_ADD_NOTIFICATION"
+msgstr "Agregar notificación"
+
+msgid "TR_NOT_FIND_COIN"
+msgstr "Formato de datos no válido. \nNo pudimos encontrar la moneda: {}"
+
 msgid "TR_"
 msgstr ""

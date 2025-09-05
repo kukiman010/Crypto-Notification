@@ -194,5 +194,32 @@ msgstr "Here you can set your time zone (time zone). This is necessary for the c
 msgid "TR_SUCCESSFUL_TIMEZONE"
 msgstr "Time zone settings successfully applied!"
 
+msgid "TR_FIND_COIN"
+msgstr "Find Coin"
+
+msgid "TR_FIND_COIN_LABEL"
+msgstr "Enter the name or abbreviation of the coin, e.g., bitcoin or btc. \nWaiting for input"
+
+msgid "TR_ADD_FAVORIT_COIN"
+msgstr "Add coin to favorites"
+
+msgid "TR_DEL_FAVORIT_COIN"
+msgstr "Remove coin from favorites"
+
+msgid "TR_COIN_INFO"
+msgstr "Coin: {} / {} \ncoin id: {} \n\nPrice: {} {} per 1 {}\n\nLast update:\n{}"
+
+msgid "TR_MES_ADD_FAVORIT_COIN"
+msgstr "Coin {} added to favorites."
+
+msgid "TR_MES_DEL_FAVORIT_COIN"
+msgstr "Coin {} removed from favorites."
+
+msgid "TR_ADD_NOTIFICATION"
+msgstr "Add notification"
+
+msgid "TR_NOT_FIND_COIN"
+msgstr "Invalid data format. \nWe could not find this coin: {}"
+
 msgid "TR_"
 msgstr ""

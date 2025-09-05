@@ -1,12 +1,19 @@
 import io
 import requests
 from datetime import datetime
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+
+from systems.logger         import LoggerSingleton
+
+
 
 class CoinGeckoHistory:
     API_BASE = "https://api.coingecko.com/api/v3"
     _coins_cache = None  # Статический кеш на весь runtime
+    _logger = LoggerSingleton.new_instance('logs/log_cripto_notify.log')
 
     def __init__(self):
         pass
@@ -39,42 +46,52 @@ class CoinGeckoHistory:
         return result
 
     def plot_history(self, symbol: str, days: str = '30', vs_currency: str = 'usd'):
-        history = self.get_history(symbol, days, vs_currency)
-        xs, ys = zip(*history)
-        fig, ax = plt.subplots(figsize=(11, 5))
-        ax.plot(xs, ys, label=f"{symbol.upper()} ({vs_currency.upper()})")
+        try:
+            history = self.get_history(symbol, days, vs_currency)
+            xs, ys = zip(*history)
+            fig, ax = plt.subplots(figsize=(11, 5))
+            ax.plot(xs, ys, label=f"{symbol.upper()} ({vs_currency.upper()})")
 
-        # Форматируем ось дат
-        if days in ['1', '1.0', 1]:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b.%d %H:%M'))
-        elif days in ['7', '14', '30', '90', '180', '365']:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-        else:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y, %b %d'))
+            # Форматируем ось дат
+            if days in ['1', '1.0', 1]:
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%b.%d %H:%M'))
+            elif days in ['7', '14', '30', '90', '180', '365']:
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+            else:
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y, %b %d'))
 
-        plt.xticks(rotation=40)
-        plt.xlabel("Дата")
-        plt.ylabel(f"Цена, {vs_currency.upper()}")
-        plt.title(f"История {symbol.upper()} за {days} дней")
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
+            plt.xticks(rotation=40)
+            plt.xlabel("Дата")
+            plt.ylabel(f"Цена, {vs_currency.upper()}")
+            plt.title(f"История {symbol.upper()} за {days} дней")
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
 
-        # Аннотация: просто текст цены у последней точки
-        last_x = xs[-1]
-        last_y = ys[-1]
-        ax.text(
-            last_x, last_y, f"{last_y:.2f} {vs_currency.upper()}",
-            fontsize=11, color='red', ha='right', va='bottom',
-            fontweight='bold',
-            bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3', alpha=0.7)
-        )
+            # Аннотация: просто текст цены у последней точки
+            last_x = xs[-1]
+            last_y = ys[-1]
+            ax.text(
+                last_x, last_y, f"{last_y:.2f} {vs_currency.upper()}",
+                fontsize=11, color='red', ha='right', va='bottom',
+                fontweight='bold',
+                bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3', alpha=0.7)
+            )
 
-        bio = io.BytesIO()
-        plt.savefig(bio, format='png', bbox_inches='tight')
-        plt.close(fig)
-        bio.seek(0)
-        return bio
+            bio = io.BytesIO()
+            plt.savefig(bio, format='png', bbox_inches='tight')
+            plt.close(fig)
+            bio.seek(0)
+            return bio
+
+        except Exception as e:
+            # Пишем в лог ошибку
+            import traceback
+            error_message = f'Ошибка в plot_history: {e}\n{traceback.format_exc()}'
+            self._logger.add_error(error_message)
+            # Можно также добавить return None, чтобы приложение не падало
+            return None
+
 
         
 
