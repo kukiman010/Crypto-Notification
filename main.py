@@ -296,14 +296,15 @@ def balance_user(userId, automatically_call:bool = True):
         # return
 
     t_mes = _locale.find_translation(user.get_language(), 'TR_BALANCE_MES')
-    pattern_coin = _locale.find_translation(user.get_language(), 'TR_PARENT_COIN')
+    # pattern_coin = _locale.find_translation(user.get_language(), 'TR_PARENT_COIN')
+    pattern_coin = '1 {} -> {} {} {}'
 
     coins = _coinApi.get_top(10)
     coins_mes = ''
 
     for node in coins:
         s = node.symbol + '   '
-        coins_mes += str( pattern_coin.format( s, crypto_trim(node.price), node.convert_currency) + '\n' )
+        coins_mes += str( pattern_coin.format( s, node.price_change, crypto_trim(node.price), node.convert_currency) + '\n' )
 
     favorites = ''
     user_favorit_coins =  user.get_favorit_coins()
@@ -311,7 +312,7 @@ def balance_user(userId, automatically_call:bool = True):
         nodes = _coinApi.get_by_symbols(user_favorit_coins)
 
         for i in nodes:
-            favorites += str( pattern_coin.format( i.symbol + '   ', crypto_trim(i.price), i.convert_currency) + '\n' )
+            favorites += str( pattern_coin.format( i.symbol + '   ', i.price_change, crypto_trim(i.price), i.convert_currency) + '\n' )
 
     if not favorites:
         favorites = _locale.find_translation(user.get_language(), 'TR_NO_FAVORITES')

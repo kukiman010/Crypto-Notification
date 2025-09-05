@@ -164,3 +164,5 @@ class CryptoBrief:
     price: float
     convert_currency: str
     last_updated: str
+    # "", "up" или "down"; на первом запуске остаётся пустой строкой
+    price_change: str = ""

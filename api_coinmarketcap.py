@@ -124,10 +124,10 @@ class CoinMarketCapApi:
                             price=float(info["converted_price"]),
                             convert_currency=convert,
                             last_updated=cb.last_updated,
+                            price_change=cb.price_change,   # переносим уже вычисленный флаг
                         )
                     )
                 return tuple(result)
-
             return self._cache_data[:limit]
 
     def get_all_cached(self, as_dicts: bool = False) -> Tuple[CryptoBrief, ...] | List[Dict[str, Any]]:
@@ -294,16 +294,15 @@ class CoinMarketCapApi:
             "X-CMC_PRO_API_KEY": self.api_key,
         }
         url = self.API_BASE + self.ENDPOINT_LISTINGS
-        resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
 
         # Обработка rate-limit
+        resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
         if resp.status_code == 429:
             retry_after = resp.headers.get("Retry-After")
             delay = int(retry_after) if retry_after and retry_after.isdigit() else max(5, self._backoff_sec or 10)
             if self.verbose:
                 print(f"[CMC] rate-limited, sleep {delay}s")
             time.sleep(delay)
-            # Повтор
             resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
 
         resp.raise_for_status()
@@ -315,22 +314,42 @@ class CoinMarketCapApi:
         all_cryptos = payload.get("data") or []
         convert_upper = convert.upper()
 
+        # Снимок предыдущих цен (по символу) для сравнения
+        with self._lock:
+            prev_prices = {cb.symbol: cb.price for cb in self._cache_data}
+
         new_list: List[CryptoBrief] = []
         for c in all_cryptos:
             q = (c.get("quote") or {}).get(convert_upper)
             if not q:
                 continue
+
+            sym = c["symbol"].upper()
+            price = float(q["price"])
+            prev = prev_prices.get(sym)
+
+            if prev is None:
+                change = ""           # первая загрузка или новая монета
+            elif price > prev:
+                change = "⬆"
+            elif price < prev:
+                change = "⬇"
+            else:
+                change = ""           # без изменения
+
             new_list.append(
                 CryptoBrief(
                     id=int(c["id"]),
                     name=c["name"],
-                    symbol=c["symbol"].upper(),
-                    price=float(q["price"]),
+                    symbol=sym,
+                    price=price,
                     convert_currency=convert_upper,
                     last_updated=c.get("last_updated") or "",
+                    price_change=change,
                 )
             )
-        # Установка нового кеша — под локом, атомарно
+            # Установка нового кеша — под локом, атомарно
+
         with self._lock:
             new_tuple = tuple(new_list)
             new_index = {cb.symbol: i for i, cb in enumerate(new_tuple)}
@@ -350,6 +369,7 @@ class CoinMarketCapApi:
             "price": cb.price,
             "convert_currency": cb.convert_currency,
             "last_updated": cb.last_updated,
+            "price_change": cb.price_change,
         }
     
 
@@ -413,6 +433,7 @@ class CoinMarketCapApi:
                         price=float(q["price"]),
                         convert_currency=convert_upper,
                         last_updated=c.get("last_updated") or "",
+                        price_change="",  # поиск не меняет кеш — оставляем пусто
                     )
         except Exception as ex:
             if self.verbose:
@@ -459,16 +480,14 @@ class CoinMarketCapApi:
         if convert and convert.strip().upper() != convert_upper and self.verbose:
             print(f"[CMC] add_symbols_to_cache: requested convert '{convert}' != default '{convert_upper}', using default.")
 
-        # 2. Ищем, какие реально надо добавить (отсутствующие в кеше)
         with self._lock:
             already_in_cache = set(self._index_by_symbol.keys())
+            prev_prices = {cb.symbol: cb.price for cb in self._cache_data}
         symbols_to_query = [sym for sym in unique_symbols if sym not in already_in_cache]
 
         if not symbols_to_query:
-            # Всё уже есть, просто вернуть кеш
             return self.get_all_cached(as_dicts=False)
 
-        # 3. Только для недостающих тикеров — делаем quotes/latest
         headers = {
             "Accepts": "application/json",
             "X-CMC_PRO_API_KEY": self.api_key,
@@ -497,16 +516,34 @@ class CoinMarketCapApi:
 
         data = payload.get("data") or {}
         new_items: Dict[str, CryptoBrief] = {}
+
         for sym, info in data.items():
             quote = (info.get("quote") or {}).get(convert_upper)
             if not quote or "price" not in quote:
                 continue
+            price = float(quote["price"])
+            prev = prev_prices.get(sym)
+            if prev is None:
+                change = ""
+            elif price > prev:
+                change = "⬆"
+            elif price < prev:
+                change = "⬇"
+            else:
+                change = ""
+            new_items[sym] = CryptoBrief(
+                id=int(info["id"]),
+                name=info["name"],
+                symbol=sym,
+                price=price,
+                convert_currency=convert_upper,
+                last_updated=info.get("last_updated") or "",
+                price_change=change,
+            )
 
         if not new_items:
-            # Нечего мёрджить — вернуть текущий снимок
             return self.get_all_cached(as_dicts=False)
 
-        # Атомарная установка кеша
         with self._lock:
             current_list = list(self._cache_data)
             index = dict(self._index_by_symbol)
@@ -521,9 +558,7 @@ class CoinMarketCapApi:
                     current_list.append(cb)
 
             new_tuple = tuple(current_list)
-            # Переиндексация на всякий случай (индексы могли сдвинуться)
             new_index = {c.symbol: i for i, c in enumerate(new_tuple)}
-
             self._cache_data = new_tuple
             self._index_by_symbol = new_index
             self._last_update_ts = time.time()
