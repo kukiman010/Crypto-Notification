@@ -194,5 +194,32 @@ msgstr "你可以在这里设置时区。这对于信息准确显示很重要。
 msgid "TR_SUCCESSFUL_TIMEZONE"
 msgstr "时区设置已成功应用！"
 
+msgid "TR_FIND_COIN"
+msgstr "查找币种"
+
+msgid "TR_FIND_COIN_LABEL"
+msgstr "请输入币种名称或缩写，例如：bitcoin 或 btc。 \n等待名称"
+
+msgid "TR_ADD_FAVORIT_COIN"
+msgstr "添加币种到收藏夹"
+
+msgid "TR_DEL_FAVORIT_COIN"
+msgstr "从收藏夹中移除币种"
+
+msgid "TR_COIN_INFO"
+msgstr "币种：{} / {} \n币种ID：{} \n\n价格：{} {} 每 1 {}\n\n最后更新：\n{}"
+
+msgid "TR_MES_ADD_FAVORIT_COIN"
+msgstr "币种 {} 已添加到收藏夹。"
+
+msgid "TR_MES_DEL_FAVORIT_COIN"
+msgstr "币种 {} 已从收藏夹移除。"
+
+msgid "TR_ADD_NOTIFICATION"
+msgstr "添加通知"
+
+msgid "TR_NOT_FIND_COIN"
+msgstr "数据格式无效。 \n未找到此币种：{}"
+
 msgid "TR_"
 msgstr ""

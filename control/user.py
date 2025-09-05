@@ -5,7 +5,7 @@ class User:
         self._tariff =                  1  # 0-lock, 1-default user, 2 >= - donater
         self._type_user=                ''
         self._lang_code =               ''
-        self._favorit_coins =           '' # array
+        self._favorit_coins =           [] # array
         self._action =                  ''
         self._last_balance_mes_id=      ''
         self._count_post_balance_mes =  ''

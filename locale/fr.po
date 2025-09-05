@@ -194,5 +194,32 @@ msgstr "Vous pouvez ici indiquer votre fuseau horaire. Cela est nécessaire pour
 msgid "TR_SUCCESSFUL_TIMEZONE"
 msgstr "Paramètres du fuseau horaire appliqués avec succès !"
 
+msgid "TR_FIND_COIN"
+msgstr "Trouver une pièce"
+
+msgid "TR_FIND_COIN_LABEL"
+msgstr "Entrez le nom ou l’abréviation de la pièce, par ex. : bitcoin ou btc. \nEn attente du nom"
+
+msgid "TR_ADD_FAVORIT_COIN"
+msgstr "Ajouter une pièce aux favoris"
+
+msgid "TR_DEL_FAVORIT_COIN"
+msgstr "Supprimer une pièce des favoris"
+
+msgid "TR_COIN_INFO"
+msgstr "Pièce : {} / {} \nidentifiant de la pièce : {} \n\nPrix : {} {} pour 1 {}\n\nDernière mise à jour :\n{}"
+
+msgid "TR_MES_ADD_FAVORIT_COIN"
+msgstr "La pièce {} a été ajoutée aux favoris."
+
+msgid "TR_MES_DEL_FAVORIT_COIN"
+msgstr "La pièce {} a été retirée des favoris."
+
+msgid "TR_ADD_NOTIFICATION"
+msgstr "Ajouter une notification"
+
+msgid "TR_NOT_FIND_COIN"
+msgstr "Format de données invalide. \nNous n’avons pas trouvé cette pièce : {}"
+
 msgid "TR_"
 msgstr ""

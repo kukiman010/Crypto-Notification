@@ -32,23 +32,23 @@ class dbApi:
         return None
 
     def update_last_login(self, userId):
-        query = 'SELECT update_last_login({})'.format(userId)
+        query = 'SELECT update_last_login({});'.format(userId)
         self.db.execute_query(query)
 
     def update_last_balance_mes_id(self, userId, mesId):
-        query = 'SELECT update_last_balance_mes_id({}, {})'.format(userId, mesId)
+        query = 'SELECT update_last_balance_mes_id({}, {});'.format(userId, mesId)
         self.db.execute_query(query)
 
     def update_count_post_balance_mes(self, userId, index):
-        query = 'SELECT update_count_post_balance_mes({}, {})'.format(userId, index)
+        query = 'SELECT update_count_post_balance_mes({}, {});'.format(userId, index)
         self.db.execute_query(query)
 
     def add_favorit_coin(self, userId, coin):
-        query = 'SELECT add_favorit_coin({}, {})'.format(userId, coin)
+        query = "SELECT add_favorit_coin({}, '{}');".format(userId, coin)
         self.db.execute_query(query)
 
     def remove_favorit_coin(self, userId, coin):
-        query = 'SELECT remove_favorit_coin({}, {})'.format(userId, coin)
+        query = "SELECT remove_favorit_coin({}, '{}');".format(userId, coin)
         self.db.execute_query(query)
 
     def get_last_active_users(self) -> list[int]:
@@ -73,7 +73,7 @@ class dbApi:
         return array
     
     def set_timezone(self, userId, timezone):
-        query = 'update users set code_time={} where user_id={};'.format(timezone, userId)
+        query = "update users set code_time={} where user_id={};".format(timezone, userId)
         self.db.execute_query(query)
 
     def get_languages(self):
@@ -90,8 +90,18 @@ class dbApi:
         query = "update users set language_code='{}' where user_id={};".format(lang_code, userId)
         self.db.execute_query(query)
 
+    def update_user_action(self, userId, action):
+        query = "SELECT update_wait_action({}, '{}'); ".format(userId, action)
+        self.db.execute_query(query)
 
+    def increment_balance_mes(self, userId):
+        query = "SELECT increment_post_balance_mes({});".format(userId)
+        self.db.execute_query(query)
 
+    def get_favorit_coins_list(self, days = 0):
+        query = "SELECT get_unique_favorit_coins({}); ".format(days)
+        data = self.db.execute_query(query)
+        return data[0][0]
 
     def __del__(self):
         self.db.close_pool()

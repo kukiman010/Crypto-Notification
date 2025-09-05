@@ -12,7 +12,15 @@ def get_time_string(self):
 
 
 
-def send_text(telegram_bot, chat_id, text, reply_markup=None, id_message_for_edit=None):
+def send_text(
+    telegram_bot, 
+    chat_id, 
+    text, 
+    reply_markup=None, 
+    id_message_for_edit=None, 
+    photo=None,  # <-- добавлен параметр для фото
+    photo_caption=None  # <-- опционально свой текст для фото 
+):
     max_message_length = 4050
     hard_break_point = 3700
     soft_break_point = 3300
@@ -37,18 +45,42 @@ def send_text(telegram_bot, chat_id, text, reply_markup=None, id_message_for_edi
 
     for i, chunk in enumerate(results):
         try:
+            # Если edit и первый чанк (здесь нельзя вставить фото)
             if id_message_for_edit and i == 0:
-                msg = telegram_bot.edit_message_text(chat_id=chat_id, message_id=id_message_for_edit, text=chunk, reply_markup=reply_markup)
-                sent_message_id = msg.message_id  # Вернет id отредактированного сообщения
+                msg = telegram_bot.edit_message_text(
+                    chat_id=chat_id, 
+                    message_id=id_message_for_edit, 
+                    text=chunk, 
+                    reply_markup=reply_markup
+                )
+                sent_message_id = msg.message_id
                 id_message_for_edit = None
+
+            elif photo is not None and i == 0:
+                # Первый чанк с фото!
+                msg = telegram_bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=photo_caption if photo_caption is not None else chunk,
+                    reply_markup=reply_markup
+                )
+                sent_message_id = msg.message_id
+                photo = None  # фото отправлено только 1 раз
+
             else:
-                msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
-                # ID только первого отправленного сообщения (собственно, только оно может быть потом редактировано)
+                # Обычный текст
+                msg = telegram_bot.send_message(
+                    chat_id, 
+                    chunk, 
+                    reply_markup=reply_markup
+                )
                 if sent_message_id is None:
                     sent_message_id = msg.message_id
 
         except Exception as e:
-            _logger.add_critical(f"Ошибка для chat_id:{chat_id} при отправке сообщения. Ошибка: {e}\n В этом тексте: \n{chunk}")
+            _logger.add_critical(
+                f"Ошибка для chat_id:{chat_id} при отправке сообщения. Ошибка: {e}\n В этом тексте: \n{chunk}"
+            )
             msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
             if sent_message_id is None:
                 sent_message_id = msg.message_id
@@ -68,3 +100,33 @@ def get_current_time_with_utc_offset(offset_hours: int) -> str:
         zone_str = '(UTC {})'.format(offset_hours)
 
     return dt.strftime("%Y-%m-%d %H:%M:%S") +'  ' + zone_str
+
+
+
+def crypto_trim(number, significant_digits=3):
+    """
+    Обрезает число после ведущих нулей и первой значимой цифры,
+    оставляя заданное количество значимых знаков.
+
+    Пример: crypto_trim(0.000121332423, 1) -> 0.0001
+            crypto_trim(0.000121332423, 3) -> 0.000121
+            crypto_trim(3.1346343759531092, 2) -> 3.13
+    """
+    s = f"{number:.20f}"  # Предельно длинная строка для точности
+    if '.' not in s:
+        return int(s)
+    integer, fraction = s.split('.')
+    # Для целых чисел или числа 0
+    if int(integer) != 0:
+        return float(integer + '.' + fraction[:significant_digits])
+    # Для дробных чисел после нулей
+    sig_count = 0
+    trim = ''
+    for c in fraction:
+        trim += c
+        if c != '0':
+            sig_count += 1
+        if sig_count == significant_digits:
+            break
+    return float(f"0.{trim}")
+
