@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from systems.logger         import LoggerSingleton
+from tools.tools            import crypto_trim
 
 
 
@@ -19,18 +20,20 @@ class CoinGeckoHistory:
         pass
 
     def get_coin_id(self, symbol: str) -> str:
-        # Используем общий static кеш на сессию
-        if CoinGeckoHistory._coins_cache is None:
-            url = f"{self.API_BASE}/coins/list"
-            resp = requests.get(url)
-            resp.raise_for_status()
-            coins = resp.json()
-            # Кешируем весь список
-            CoinGeckoHistory._coins_cache = {c["symbol"].lower(): c["id"] for c in coins}
-        coin_id = CoinGeckoHistory._coins_cache.get(symbol.lower())
-        if not coin_id:
-            raise ValueError(f"Не удалось найти монету по тикеру '{symbol}'")
-        return coin_id
+        r = requests.get(f"{self.API_BASE}/search", params={"query": symbol})
+        r.raise_for_status()
+        coins = r.json().get("coins", [])
+        # Фильтруем по точному совпадению символа (без учета регистра)
+        exact = [c for c in coins if c.get("symbol", "").lower() == symbol.lower()]
+        if not exact:
+            raise ValueError(f"Не нашел монет с символом '{symbol}'. Попробуйте другой запрос или укажите id.")
+        # Выбираем монету с лучшим (меньшим) market_cap_rank, если доступно
+        def rank_key(c):
+            rank = c.get("market_cap_rank")
+            return rank if isinstance(rank, int) else 10**9
+        best = sorted(exact, key=rank_key)[0]
+        return best["id"]
+
 
     def get_history(self, symbol: str, days: str = '30', vs_currency: str = 'usd'):
         coin_id = self.get_coin_id(symbol)
@@ -44,6 +47,7 @@ class CoinGeckoHistory:
             for ts, price in data
         ]
         return result
+
 
     def plot_history(self, symbol: str, days: str = '30', vs_currency: str = 'usd'):
         try:
@@ -71,12 +75,14 @@ class CoinGeckoHistory:
             # Аннотация: просто текст цены у последней точки
             last_x = xs[-1]
             last_y = ys[-1]
+            # num = crypto_trim(last_y, 3)
             ax.text(
-                last_x, last_y, f"{last_y:.2f} {vs_currency.upper()}",
+                last_x, last_y, f"{crypto_trim(last_y, 3)} {vs_currency.upper()}",
                 fontsize=11, color='red', ha='right', va='bottom',
                 fontweight='bold',
                 bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3', alpha=0.7)
             )
+
 
             bio = io.BytesIO()
             plt.savefig(bio, format='png', bbox_inches='tight')

@@ -19,7 +19,7 @@ from control.user           import User
 from api_coinmarketcap      import CoinMarketCapApi
 from api_coin_history       import CoinGeckoHistory
 from systems.schedulertimer import generate_schedule, TimerScheduler
-from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim
+from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim, is_between
 
 
 
@@ -71,38 +71,46 @@ if __name__ == "__main__":
     except requests.exceptions.ConnectionError as e:
         _logger.add_error('{} - Нет соединения с сервером telegram bot: {}'.format(get_time_string() ,e))
 
-# _bot = telebot.TeleBot( TOKEN_TG )
-
 
 
 
 
 def on_update_users_price():
-    # users = _db.get_users_balance_mes()
-    
     user_ids =  _db.get_last_active_users()
 
     for id in user_ids:
         balance_user(id)
 
 
-# def on_check_notifications():
-#     # notifications = _db.users_notifications()
+def on_check_notifications():
+    notifications = _db.get_notifications()
+    user:User = None
+    list_coin = set()
+    for notify in notifications:
+        list_coin.add(notify.symbol)
+        
 
-#     for user_id in notifications:
-#         # check_and_notify(user_id, coin, current_price)
+    coins = _coinApi.get_by_symbols(list_coin)
 
-#         user_notifs = notifications.get(user_id, [])
-#         # Берём уведомления с этой монетой и не отправленные
-#         relevant = [n for n in user_notifs if n['coin'] == coin and not n['sent']]
-#         # Только те, которые можно сработать по текущей цене
-#         candidates = [n for n in relevant if current_price >= n['price']]
-#         if not candidates:
-#             return
-#         # Самое большое значение, не превышающее курс (ближе всего)
-#         best = max(candidates, key=lambda n: n['price'])
-#         best['sent'] = True
-#         _bot.send_message(user_id, f" {coin.upper()} достиг {best['price']}! {best['note']}")
+    for coin in coins:
+        price_now = coin.price
+        price_old = coin.previous_price
+
+        if price_old == -1 or price_old == None:
+            continue
+
+        for notify in notifications:
+            if coin.symbol == notify.symbol:
+                if is_between(notify.price, price_now, price_old, notify.trigger):
+                    if not user.is_valid() and user.get_user_id() != notify.user_id:
+                        user = user_verification_easy(notify.user_id)
+
+                    send_text(_bot, notify.user_id, _locale.find_translation(user.get_language(), 'TR_NOTIFY_NOW').format(notify.symbol, crypto_trim(price_now), coin.convert_currency, notify.coment) )
+                    _db.increment_balance_mes(notify.user_id)
+                    _db.del_notification(notify.id)
+                    continue
+
+
 
 
 def on_get_price(signal=None):
@@ -116,10 +124,10 @@ def on_get_price(signal=None):
         _coinApi.add_symbols_to_cache(favorit_coins, convert="USD", replace_existing=False)
 
     thread_price = threading.Thread(target=on_update_users_price)
-    # thread_notify = threading.Thread(target=on_check_notifications)
+    thread_notify = threading.Thread(target=on_check_notifications)
 
     thread_price.start()
-    # thread_notify.start()
+    thread_notify.start()
 
 
 @_bot.message_handler(commands=['start'])
@@ -167,28 +175,6 @@ def send_price(message):
 
 
 
-@_bot.message_handler(commands=['notify'])
-def handle_notify(message):
-    pattern = r'^/notify\s+(\w+)\s+([\d.]+)\s+(.+)$'
-    match = re.match(pattern, message.text.strip(), re.IGNORECASE)
-    if not match:
-        _bot.reply_to(message, "Правильный формат: /notify btc 117380.50 зайди на биржу")
-        return
-
-    coin, price_str, note = match.groups()
-    try:
-        price = float(price_str)
-        if price <= 0:
-            raise ValueError
-    except ValueError:
-        _bot.reply_to(message, "Цена должна быть положительным числом.")
-        return
-
-    user_id = message.from_user.id
-    notif = {'coin': coin.lower(), 'price': price, 'note': note, 'sent': False}
-    notifications.setdefault(user_id, []).append(notif)
-    _bot.reply_to(message, f"Добавлено уведомление: {coin.upper()} при цене {price} — {note}")
-
 
 
 @_bot.callback_query_handler(func=lambda call: True)
@@ -209,6 +195,9 @@ def debug_callback(call):
 
     del_favorit_coin = r'^del_favorit_coin_(\S+)$'
     del_favorit_match = re.match(del_favorit_coin, key)
+
+    add_notify_coin = r'^add_notify_(\S+)$'
+    add_notify_match = re.match(add_notify_coin, key)
     
 
 
@@ -259,6 +248,11 @@ def debug_callback(call):
         _db.increment_balance_mes(user.get_user_id())
         send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_MES_DEL_FAVORIT_COIN').format(coin_symbol))
 
+    elif add_notify_match:
+        _bot.answer_callback_query(call.id, text = '')
+        coin_symbol = add_notify_match.group(1)
+        send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_ADD_NOTIFICATION_MES').format(coin_symbol))
+        _db.update_user_action(chat_id, 'add_notify_' + coin_symbol)
 
     else:
         t_mes = _locale.find_translation(user.get_language(), 'TR_ERROR')
@@ -269,25 +263,22 @@ def debug_callback(call):
 @_bot.message_handler(func=lambda message: True)
 def handle_user_message(message):
     user = user_verification(message)
+    text = message.text
+    _db.increment_balance_mes(user.get_user_id())
 
     action = user.get_action()
     if action != '' and action != None:
-        action_handler(user.get_user_id(), user, action, message.text)
+        action_handler(user.get_user_id(), user, action, text)
         return
+    else:
+        is_coin_rx = r'^\/\b([A-Z0-9]{2,5})\b$'
+        is_coint_match = re.match(is_coin_rx, text)
+
+        if is_coint_match:
+            coin_symbol = is_coint_match.group(1)
+            action_handler(user.get_user_id(), user, 'find_coin', coin_symbol)
 
 
-# def check_and_notify(user_id, coin, current_price):
-#     user_notifs = notifications.get(user_id, [])
-#     # Берём уведомления с этой монетой и не отправленные
-#     relevant = [n for n in user_notifs if n['coin'] == coin and not n['sent']]
-#     # Только те, которые можно сработать по текущей цене
-#     candidates = [n for n in relevant if current_price >= n['price']]
-#     if not candidates:
-#         return
-#     # Самое большое значение, не превышающее курс (ближе всего)
-#     best = max(candidates, key=lambda n: n['price'])
-#     best['sent'] = True
-#     _bot.send_message(user_id, f" {coin.upper()} достиг {best['price']}! {best['note']}")
 
 
 def balance_user(userId, automatically_call:bool = True):
@@ -297,8 +288,7 @@ def balance_user(userId, automatically_call:bool = True):
         # return
 
     t_mes = _locale.find_translation(user.get_language(), 'TR_BALANCE_MES')
-    # pattern_coin = _locale.find_translation(user.get_language(), 'TR_PARENT_COIN')
-    pattern_coin = '1 {} -> {} {} {}'
+    pattern_coin = '1 /{} -> {} {} {}'
 
     coins = _coinApi.get_top(10)
     coins_mes = ''
@@ -313,7 +303,7 @@ def balance_user(userId, automatically_call:bool = True):
         nodes = _coinApi.get_by_symbols(user_favorit_coins)
 
         for i in nodes:
-            favorites += str( pattern_coin.format( i.symbol + '   ', i.price_change, crypto_trim(i.price), i.convert_currency) + '\n' )
+            favorites += str( pattern_coin.format( i.symbol.ljust(6)  + '   ', i.price_change, crypto_trim(i.price), i.convert_currency) + '\n' )
 
     if not favorites:
         favorites = _locale.find_translation(user.get_language(), 'TR_NO_FAVORITES')
@@ -340,7 +330,6 @@ def balance_user(userId, automatically_call:bool = True):
     if message_id != None:
         _db.update_last_balance_mes_id(userId, message_id)
 
-    # print()
 
 
 
@@ -429,6 +418,9 @@ def get_language(user: User, message_id:int = -1):
 
 def action_handler(chatId, user:User, action, text):
 
+    add_notify_coin = r'^add_notify_(\S+)$'
+    add_notify_match = re.match(add_notify_coin, action)
+
     if action == 'find_coin':
         _db.update_user_action(user.get_user_id(), '')
         coin = _coinApi.find_coin(text)
@@ -439,11 +431,26 @@ def action_handler(chatId, user:User, action, text):
             _logger.add_warning('пользователь {} не смог найти монету: {}'.format(user.get_user_id(), text))
             return
 
+        notifications = _db.get_notification_by_userid(user.get_user_id(), coin.symbol)
+        notify_mes:str = ""
+        for notify in notifications:
+            if notify.trigger == '>':
+                simvol = ' ↗️'
+            else:
+                simvol = ' ↘️'
+
+            notify_mes += str(crypto_trim(notify.price,4)) + simvol + '\n'
+        
+        if len(notifications) < 0:
+            notify_mes = _locale.find_translation(user.get_language(), 'TR_NOTIFY_IS_NOT_ADD')
+
         last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
-        mes = _locale.find_translation('ru', 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, crypto_trim(coin.price), coin.convert_currency, coin.symbol, last_update_coin )
+        mes = _locale.find_translation(user.get_language(), 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, crypto_trim(coin.price), coin.convert_currency, coin.symbol, notify_mes, last_update_coin )
         photo_byte = _coinHistoreApi.plot_history( coin.symbol, 7, coin.convert_currency.lower() )
         markup = types.InlineKeyboardMarkup()
         have_in_favorit = False
+
+
 
         user_favorit_coins =  user.get_favorit_coins()
         if user_favorit_coins != None:
@@ -456,9 +463,66 @@ def action_handler(chatId, user:User, action, text):
         if not have_in_favorit:
             markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_ADD_FAVORIT_COIN'),    callback_data='add_favorit_coin_{}'.format(coin.symbol)) )
         
-        # markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_ADD_NOTIFICATION'),        callback_data='add_notify_{}'.format(coin.symbol)) )
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_ADD_NOTIFICATION'),        callback_data='add_notify_{}'.format(coin.symbol)) )
 
         send_text(_bot, chatId, mes, markup, photo=photo_byte)
+        return
+
+    elif add_notify_match:
+        coin_symbol = add_notify_match.group(1)
+        _db.update_user_action(user.get_user_id(), '')
+        
+        rx = r"^(\d+)(?:(?:[.,']|[ \t])(\d*)[ \t]*(.*))?$"
+
+        array = []
+        coin = _coinApi.get_by_symbol(coin_symbol)
+
+        if coin == None:
+            return
+        
+        price_now = coin.price
+
+        for line in str(text).split('\n'):
+            rx_match =re.match(rx, line)
+            if rx_match:
+                number:float
+
+                if rx_match.group(2) != None and rx_match.group(2) != '':
+                    number = float(rx_match.group(1) + '.' + rx_match.group(2))
+                else:
+                    number = float( rx_match.group(1) )
+
+                comment = ''
+                if rx_match.group(3) != None:
+                    comment = rx_match.group(3)
+
+                trend:str
+                if number == price_now:
+                    trend = '='
+                elif number > price_now:
+                    trend = '>'
+                elif number < price_now:
+                    trend = '<'
+
+                array.append( (number, comment, trend) )
+
+
+        for p, c, t in array:
+            _db.add_notification( user.get_user_id(), coin_symbol, p, t, c)
+        
+
+        _db.increment_balance_mes(user.get_user_id())
+        if len(array) > 0:
+            send_text(_bot, chatId, _locale.find_translation(user.get_language(), 'TR_NOTIFICATION_ADD_OK').format(len(array), coin_symbol))
+        else:
+            send_text(_bot, chatId, _locale.find_translation(user.get_language(), 'TR_NOTIFICATION_ADD_NOT'))
+
+        return
+                
+        
+
+        
+
 
     else:
         _db.update_user_action( user.get_user_id(), '' )
