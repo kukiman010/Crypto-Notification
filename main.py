@@ -37,6 +37,7 @@ _db = dbApi( _setting.get_db_dbname(), _setting.get_db_user(), _setting.get_db_p
 # LIMIT = 44640 # лимит 2000/мес
 LIMIT = 10000 # лимит 2000/мес
 TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
+LIMIT_MAX_MES = 3
 
 
 TOKEN_TG = _setting.get_tgToken()
@@ -319,7 +320,7 @@ def balance_user(userId, automatically_call:bool = True):
 
     isNew = False
 
-    if user.get_count_post_balance_mes() > 5 :
+    if user.get_count_post_balance_mes() > LIMIT_MAX_MES :
         isNew = True
     elif user.get_last_balance_mes_id() == 0:
         isNew = True
@@ -439,7 +440,7 @@ def action_handler(chatId, user:User, action, text):
             return
 
         last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
-        mes = _locale.find_translation('ru', 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, crypto_trim(coin.price), coin.symbol, coin.convert_currency, last_update_coin )
+        mes = _locale.find_translation('ru', 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, crypto_trim(coin.price), coin.convert_currency, coin.symbol, last_update_coin )
         photo_byte = _coinHistoreApi.plot_history( coin.symbol, 7, coin.convert_currency.lower() )
         markup = types.InlineKeyboardMarkup()
         have_in_favorit = False

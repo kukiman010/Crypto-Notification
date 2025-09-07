@@ -3,7 +3,7 @@ import os
 import time
 import threading
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any, Iterable
+from typing import Dict, List, Optional, Tuple, Any, Iterable, Union
 from control.data_models import CryptoBrief
 
 import requests
@@ -38,7 +38,7 @@ class CoinMarketCapApi:
         *,
         default_convert: str = "USD",
         # refresh_interval: int = 60,      # параметр сохранён для обратной совместимости, не используется
-        cache_limit: int = 200,
+        cache_limit: int = 999999,
         # stale_ttl: int = 180,            # параметр сохранён для обратной совместимости, не используется
         request_timeout: int = 10,
         session: Optional[requests.Session] = None,
@@ -329,13 +329,13 @@ class CoinMarketCapApi:
             prev = prev_prices.get(sym)
 
             if prev is None:
-                change = ""           # первая загрузка или новая монета
+                change = "*️⃣"           # первая загрузка или новая монета
             elif price > prev:
-                change = "⬆"
+                change = "↗️"
             elif price < prev:
-                change = "⬇"
+                change = "↘️"
             else:
-                change = ""           # без изменения
+                change = "🔄"           # без изменения
 
             new_list.append(
                 CryptoBrief(
@@ -373,74 +373,114 @@ class CoinMarketCapApi:
         }
     
 
-    def find_coin(self, name_or_symbol: str, *, convert: Optional[str] = None) -> Optional[CryptoBrief]:
+    def find_coin(self, name_or_symbol: Union[str, List[str]], *, convert: Optional[str] = None) -> Union[Optional[CryptoBrief], List[CryptoBrief]]:
         """
-        Поиск монеты по тикеру (BTC) или названию (bitcoin).
-        Сначала ищет в кеше. Если не нашёл — запрос к CoinMarketCap API (listings).
-        Возвращает CryptoBrief или None.
+        Поиск монеты/монет по тикеру (BTC) или названию (bitcoin).
+        Можно передать одну или несколько валют. Вернёт объект или список объектов. 
         """
         if not name_or_symbol:
             return None
 
-        lookup = name_or_symbol.strip().lower()
+        queries = [name_or_symbol] if isinstance(name_or_symbol, str) else name_or_symbol
+        queries = [q.strip().lower() for q in queries if q]
+
+        found_results = []
+
         if not self._cache_data:
             self._refresh_once_blocking(convert=convert or self.default_convert)
 
-        # 1. Пробуем по символу в кеше
-        cb = self.get_by_symbol(lookup.upper())
-        if cb:
-            return cb
+        for lookup in queries:
+            # 1. Поиск в кеше по symbol
+            cb = self.get_by_symbol(lookup.upper())
+            if cb: 
+                found_results.append(cb)
+                continue
 
-        # 2. Пробуем по имени в кеше
-        with self._lock:
-            for coin in self._cache_data:
-                if coin.name.lower() == lookup:
-                    return coin
+            # 2. Поиск в кеше по name
+            found_in_cache = False
+            with self._lock:
+                for coin in self._cache_data:
+                    if coin.name.lower() == lookup:
+                        found_results.append(coin)
+                        found_in_cache = True
+                        break
+            if found_in_cache:
+                continue
 
-        # 3. Если не нашли — запрос к API (listings)
-        try:
-            # Используем стандартный механизм обновления с ограничением в 1000 (максимум по нужде)
-            params = {
-                "start": "1",
-                "limit": "300",  # Магия: достаточно для поиска по названию
-                "convert": convert or self.default_convert,
-                "sort": self.sort,
-                "sort_dir": self.sort_dir,
-            }
-            headers = {
-                "Accepts": "application/json",
-                "X-CMC_PRO_API_KEY": self.api_key,
-            }
-            url = self.API_BASE + self.ENDPOINT_LISTINGS
-
-            resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
-            resp.raise_for_status()
-            payload = resp.json()
-            coins = payload.get("data") or []
-            convert_upper = (convert or self.default_convert).upper()
-            for c in coins:
-                if (
-                    c["symbol"].lower() == lookup
-                    or c["name"].lower() == lookup
-                ):
-                    q = c.get("quote", {}).get(convert_upper)
-                    if not q:
+            # 3. Поиск через API (quotes/latest и map)
+            try:
+                url = self.API_BASE + self.ENDPOINT_QUOTES
+                headers = {
+                    "Accepts": "application/json",
+                    "X-CMC_PRO_API_KEY": self.api_key,
+                }
+                params = {
+                    "symbol": lookup.upper(),
+                    "convert": convert or self.default_convert,
+                }
+                resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+                resp.raise_for_status()
+                payload = resp.json()
+                data = payload.get("data", {})
+                symbol_data = data.get(lookup.upper())
+                convert_upper = (convert or self.default_convert).upper()
+                if symbol_data:
+                    quote = symbol_data["quote"].get(convert_upper)
+                    if quote:
+                        found_results.append(
+                            CryptoBrief(
+                                id=int(symbol_data["id"]),
+                                name=symbol_data["name"],
+                                symbol=symbol_data["symbol"].upper(),
+                                price=float(quote["price"]),
+                                convert_currency=convert_upper,
+                                last_updated=symbol_data.get("last_updated") or "",
+                                price_change=""
+                            )
+                        )
                         continue
-                    return CryptoBrief(
-                        id=int(c["id"]),
-                        name=c["name"],
-                        symbol=c["symbol"].upper(),
-                        price=float(q["price"]),
-                        convert_currency=convert_upper,
-                        last_updated=c.get("last_updated") or "",
-                        price_change="",  # поиск не меняет кеш — оставляем пусто
-                    )
-        except Exception as ex:
-            if self.verbose:
-                print(f"find_coin error: {ex}")
-            return None
+                # Если не найдено по symbol, пробуем найти coin_id по map (по имени)
+                url_map = self.API_BASE + "/v1/cryptocurrency/map"
+                params_map = {"listing_status": "active", "symbol": "", "slug": lookup}
+                resp_map = self._session.get(url_map, headers=headers, params=params_map, timeout=self.request_timeout)
+                resp_map.raise_for_status()
+                map_data = resp_map.json().get("data", [])
+                if map_data:
+                    coin_id = map_data[0].get("id")
+                    # второй вызов для quotes/latest по id
+                    params_id = {
+                        "id": coin_id,
+                        "convert": convert or self.default_convert,
+                    }
+                    resp_id = self._session.get(url, headers=headers, params=params_id, timeout=self.request_timeout)
+                    resp_id.raise_for_status()
+                    payload_id = resp_id.json()
+                    symbol_data = payload_id.get("data", {}).get(str(coin_id))
+                    if symbol_data:
+                        quote = symbol_data["quote"].get(convert_upper)
+                        if quote:
+                            found_results.append(
+                                CryptoBrief(
+                                    id=int(symbol_data["id"]),
+                                    name=symbol_data["name"],
+                                    symbol=symbol_data["symbol"].upper(),
+                                    price=float(quote["price"]),
+                                    convert_currency=convert_upper,
+                                    last_updated=symbol_data.get("last_updated") or "",
+                                    price_change=""
+                                )
+                            )
+            except Exception as ex:
+                if self.verbose:
+                    print(f"find_coin error: {ex}")
 
-        return None
+        # Возвращаем один объект или список
+        if isinstance(name_or_symbol, str):
+            return found_results[0] if found_results else None
+        return found_results
+
+
+
 
 
 
@@ -455,24 +495,32 @@ class CoinMarketCapApi:
         Добавить/обновить в общем кеше монеты по списку тикеров с помощью /cryptocurrency/quotes/latest.
 
         Важно:
-          - Кеш в этом клиенте всегда хранится в self.default_convert для согласованности.
+        - Кеш в этом клиенте всегда хранится в self.default_convert для согласованности.
             Если передан другой convert, он будет проигнорирован (с предупреждением в verbose).
-          - Сетевая часть выполняется вне лока; установка кеша — атомарно под RLock.
+        - Сетевая часть выполняется вне лока; установка кеша — атомарно под RLock.
         
-        :param symbols: Итерабель со строковыми тикерами, напр. ['BTC', 'TON'].
+        :param symbols: Итерабель со строковыми тикерами или именами, напр. ['BTC', 'TON', 'bitcoin'].
         :param convert: Игнорируется для кеша; используется self.default_convert.
         :param replace_existing: Если True — обновляет существующие записи; если False — добавляет только новые.
         :return: Полный снимок кеша (tuple[CryptoBrief, ...]) после обновления.
 
-        Добавить/обновить в общем кеше монеты по списку тикеров с помощью /cryptocurrency/quotes/latest.
         Будет обращаться к API только по отсутствующим тикерам!
-
+        Если quotes/latest вернул не все — дозакажем недостающее через find_coin(..),
+        поддерживающую поиск по символу/имени/slug.
         """
-        # 1. Нормализация входа
-        unique_symbols = sorted({(s or "").strip().upper() for s in symbols if s and s.strip()})
-        if not unique_symbols:
+        # 1) Нормализация входа (сохраняем исходные токены — они могут быть именами)
+        raw_tokens = [(s or "").strip() for s in symbols if s and s.strip()]
+        unique_tokens = []
+        seen = set()
+        for t in raw_tokens:
+            key = t.lower()
+            if key not in seen:
+                seen.add(key)
+                unique_tokens.append(t)
+        if not unique_tokens:
             return self.get_all_cached(as_dicts=False)
 
+        # 2) Инициализация кеша при необходимости
         if not self._cache_data:
             self._refresh_once_blocking(convert=self.default_convert)
 
@@ -480,58 +528,84 @@ class CoinMarketCapApi:
         if convert and convert.strip().upper() != convert_upper and self.verbose:
             print(f"[CMC] add_symbols_to_cache: requested convert '{convert}' != default '{convert_upper}', using default.")
 
+        # 3) Отделяем уже закешированные символы (ищем и по symbol, и по name)
         with self._lock:
-            already_in_cache = set(self._index_by_symbol.keys())
+            symbol_index = dict(self._index_by_symbol)  # symbol -> pos
+            name_index = {c.name.lower(): i for i, c in enumerate(self._cache_data)}
             prev_prices = {cb.symbol: cb.price for cb in self._cache_data}
-        symbols_to_query = [sym for sym in unique_symbols if sym not in already_in_cache]
 
-        if not symbols_to_query:
+        tokens_to_query: list[str] = []
+        for tok in unique_tokens:
+            sym = tok.strip().upper()
+            if sym in symbol_index:
+                continue
+            # проверим имя
+            if tok.strip().lower() in name_index:
+                continue
+            tokens_to_query.append(tok)
+
+        # Если всё уже есть — отдадим снимок кеша
+        if not tokens_to_query:
             return self.get_all_cached(as_dicts=False)
 
-        headers = {
-            "Accepts": "application/json",
-            "X-CMC_PRO_API_KEY": self.api_key,
-        }
-        params = {
-            "symbol": ",".join(symbols_to_query),
-            "convert": convert_upper,
-            "skip_invalid": "true",
-        }
-        url = self.API_BASE + self.ENDPOINT_QUOTES
+        # 4) Пытаемся сначала одним батчем через quotes/latest по тем, что выглядят как символы (A-Z, 0-9, дефисы)
+        #    Имена/slug оставим для fallback через find_coin.
+        def is_probable_symbol(x: str) -> bool:
+            # «Похоже на тикер»: не содержит пробелов и содержит буквы/цифры/-. У CMC символы обычно латинские и без пробелов.
+            y = x.strip()
+            return (" " not in y) and all(ch.isalnum() or ch in "-._" for ch in y)
 
-        resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
-        if resp.status_code == 429:
-            retry_after = resp.headers.get("Retry-After")
-            delay = int(retry_after) if retry_after and retry_after.isdigit() else max(5, self._backoff_sec or 10)
-            if self.verbose:
-                print(f"[CMC] add_symbols_to_cache rate-limited, sleep {delay}s")
-            time.sleep(delay)
-            resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
-
-        resp.raise_for_status()
-        payload = resp.json()
-        status = payload.get("status", {})
-        if status.get("error_code", 0) != 0:
-            raise RuntimeError(f"API error: {status.get('error_message')}")
-
-        data = payload.get("data") or {}
+        probable_symbols = sorted({tok.strip().upper() for tok in tokens_to_query if is_probable_symbol(tok)})
         new_items: Dict[str, CryptoBrief] = {}
+        found_now_symbols: set[str] = set()
 
-        for sym, info in data.items():
-            quote = (info.get("quote") or {}).get(convert_upper)
-            if not quote or "price" not in quote:
-                continue
-            price = float(quote["price"])
-            prev = prev_prices.get(sym)
-            if prev is None:
-                change = ""
-            elif price > prev:
-                change = "⬆"
-            elif price < prev:
-                change = "⬇"
-            else:
-                change = ""
-            new_items[sym] = CryptoBrief(
+        if probable_symbols:
+            headers = {
+                "Accepts": "application/json",
+                "X-CMC_PRO_API_KEY": self.api_key,
+            }
+            params = {
+                "symbol": ",".join(probable_symbols),
+                "convert": convert_upper,
+                "skip_invalid": "true",
+            }
+            # ВАЖНО: ENDPOINT_QUOTES должен быть '/cryptocurrency/quotes/latest'
+            url = self.API_BASE + self.ENDPOINT_QUOTES
+
+            resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+            if resp.status_code == 429:
+                retry_after = resp.headers.get("Retry-After")
+                delay = int(retry_after) if retry_after and retry_after.isdigit() else max(5, self._backoff_sec or 10)
+                if self.verbose:
+                    print(f"[CMC] add_symbols_to_cache rate-limited, sleep {delay}s")
+                time.sleep(delay)
+                resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+
+            resp.raise_for_status()
+            payload = resp.json()
+            status = payload.get("status", {})
+            if status.get("error_code", 0) != 0:
+                raise RuntimeError(f"API error: {status.get('error_message')}")
+
+            data = payload.get("data") or {}
+            # data: dict[str, {...}] — ключи это символы
+            for sym, info in data.items():
+                quote = (info.get("quote") or {}).get(convert_upper)
+                if not quote or "price" not in quote:
+                    continue
+                price = float(quote["price"])
+                prev = prev_prices.get(sym)
+            
+                if prev is None:
+                    change = "*️⃣"           # первая загрузка или новая монета
+                elif price > prev:
+                    change = "↗️"
+                elif price < prev:
+                    change = "↘️"
+                else:
+                    change = "🔄"           # без изменения
+
+                new_items[sym] = CryptoBrief(
                 id=int(info["id"]),
                 name=info["name"],
                 symbol=sym,
@@ -539,11 +613,62 @@ class CoinMarketCapApi:
                 convert_currency=convert_upper,
                 last_updated=info.get("last_updated") or "",
                 price_change=change,
-            )
+                )
+                found_now_symbols.add(sym.upper())
 
+        # 5) Fallback: всё, что не удалось получить через quotes/latest, достанем точечно через find_coin(...)
+        #    find_coin должен уметь принимать либо символ, либо имя/slug и возвращать CryptoBrief или None.
+        unresolved_tokens: list[str] = []
+        got_keys_upper = set(found_now_symbols)
+        # Составим список «не покрытых» токенов
+        for tok in tokens_to_query:
+            # если токен выглядел как символ и он уже пришёл — пропускаем
+            if tok.strip().upper() in got_keys_upper:
+                continue
+            unresolved_tokens.append(tok)
+
+        for tok in unresolved_tokens:
+            try:
+                cb = self.find_coin(tok, convert=self.default_convert)
+            except Exception as ex:
+                if self.verbose:
+                    print(f"[CMC] add_symbols_to_cache fallback find_coin error for '{tok}': {ex}")
+                cb = None
+
+            if not cb:
+                # не нашли — просто пропустим
+                if self.verbose:
+                    print(f"[CMC] add_symbols_to_cache: not found via fallback: '{tok}'")
+                continue
+
+            # Проставим change относительно предыдущей цены (если была)
+            prev = prev_prices.get(cb.symbol)
+            if prev is None:
+                change = "🆗"
+            elif cb.price > prev:
+                change = "↗️"
+            elif cb.price < prev:
+                change = "↘️"
+            else:
+                change = "🔄"
+
+            # Гарантируем, что валюта совпадает с кешевой (мы вызывали find_coin с self.default_convert)
+            new_items[cb.symbol] = CryptoBrief(
+                id=int(cb.id),
+                name=cb.name,
+                symbol=cb.symbol,
+                price=float(cb.price),
+                convert_currency=convert_upper,
+                last_updated=cb.last_updated or "",
+                price_change=change,
+            )
+            got_keys_upper.add(cb.symbol.upper())
+
+        # 6) Если всё равно нечего добавлять/обновлять — вернём снимок кеша
         if not new_items:
             return self.get_all_cached(as_dicts=False)
 
+        # 7) Атомарно обновим кеш
         with self._lock:
             current_list = list(self._cache_data)
             index = dict(self._index_by_symbol)
