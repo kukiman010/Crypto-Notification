@@ -28,12 +28,17 @@ CREATE TABLE languages (
     _isView                 BOOLEAN
 );
 
-create table users_notification
-(
-    user_id                 BIGINT UNIQUE,
-    json                    jsonb,                  --- json( coin_code: {price, description}
-    id                      BIGSERIAL PRIMARY KEY
+CREATE TABLE crypto_notifications (
+    id                      SERIAL PRIMARY KEY,
+    user_id                 BIGINT NOT NULL,
+    crypto_symbol           VARCHAR(10) NOT NULL,
+    target_price            NUMERIC(18, 8) NOT NULL,
+    trigger_direction       VARCHAR(8) NOT NULL, -- 'above' или 'below'
+    comment                 TEXT,
+    created_at              TIMESTAMP DEFAULT NOW()
 );
+
+
 
 create table time_zone
 (
@@ -42,6 +47,8 @@ create table time_zone
     def_lang_code           TEXT,                   --- неужен для более удобно определения временной зоны по языку интерфейса пользователя
     description             TEXT
 );
+
+
 
 
 -- create table premium
@@ -241,13 +248,58 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+CREATE OR REPLACE FUNCTION add_crypto_notification(
+    p_user_id BIGINT,
+    p_crypto_symbol VARCHAR,
+    p_target_price NUMERIC,
+    p_trigger_direction VARCHAR, 
+    p_comment TEXT DEFAULT NULL
+) RETURNS VOID AS $$
+BEGIN
+    -- Простая проверка на корректность значения trigger_direction
+    IF LOWER(p_trigger_direction) NOT IN ('>', '<', '=') THEN
+        RAISE EXCEPTION 'Некорректное значение trigger_direction. Используйте only ''>'', ''<'', ''=''.';
+    END IF;
+
+    INSERT INTO crypto_notifications(user_id, crypto_symbol, target_price, trigger_direction, comment)
+    VALUES (p_user_id, UPPER(p_crypto_symbol), p_target_price, LOWER(p_trigger_direction), p_comment);
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+CREATE OR REPLACE FUNCTION delete_crypto_notification(p_id INT)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM crypto_notifications WHERE id = p_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION get_crypto_notifications_by_user(p_user_id BIGINT)
+RETURNS SETOF crypto_notifications AS $$
+BEGIN
+    RETURN QUERY
+    SELECT *
+    FROM crypto_notifications
+    WHERE user_id = p_user_id
+    ORDER BY created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+
+
+
+
 
 
 insert into default_data values ('tariff',                          '1');
 insert into default_data values ('global_payment',                  'True');
 insert into default_data values ('last_activity_autoupdate',        '5');
 insert into default_data values ('support_chat',                    '@assistant_gpts_help');
-insert into default_data values ('time_zone',                       '0');
+insert into default_data values ('time_zone',                       '3');
 
 
 insert into languages values ('Chine',      'zh', True);

@@ -3,6 +3,7 @@ from systems.database   import Database
 from control.timezone   import TimeZone_model
 from control.languages  import languages_model
 from control.user       import User
+from control.data_models import AlertCrypto
 
 
 class dbApi:
@@ -102,6 +103,39 @@ class dbApi:
         query = "SELECT get_unique_favorit_coins({}); ".format(days)
         data = self.db.execute_query(query)
         return data[0][0]
+    
+
+
+    def add_notification(self, userId, symbol, price, trigger, comment):
+        query = "SELECT add_crypto_notification({}, '{}', {}, '{}', '{}');".format(userId, symbol, price, trigger, comment)
+        self.db.execute_query(query)
+
+    def del_notification(self, id):
+        query = "SELECT delete_crypto_notification({});".format(id)
+        self.db.execute_query(query)
+
+    def get_notification_by_userid(self, userId, symbol = None) -> list[AlertCrypto]:
+        if symbol == None:
+            query = "SELECT get_crypto_notifications_by_user({}); ".format(userId)
+        else:
+            query = "select * from crypto_notifications where user_id={} and crypto_symbol='{}';".format(userId, symbol)
+        data = self.db.execute_query(query)
+        array = []
+
+        for i in data:
+            ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], trigger=i[4], coment=i[5], date=i[6])
+            array.append( ac )
+        return array
+
+    def get_notifications(self) -> list[AlertCrypto]:
+        query = "select * from crypto_notifications;"
+        data = self.db.execute_query(query)
+        array = []
+
+        for i in data:
+            ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], trigger=i[4], coment=i[5], date=i[6])
+            array.append( ac )
+        return array
 
     def __del__(self):
         self.db.close_pool()

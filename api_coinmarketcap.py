@@ -5,6 +5,7 @@ import threading
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Any, Iterable, Union
 from control.data_models import CryptoBrief
+from tools.tools import get_simvol
 
 import requests
 
@@ -329,13 +330,9 @@ class CoinMarketCapApi:
             prev = prev_prices.get(sym)
 
             if prev is None:
-                change = "*️⃣"           # первая загрузка или новая монета
-            elif price > prev:
-                change = "↗️"
-            elif price < prev:
-                change = "↘️"
-            else:
-                change = "🔄"           # без изменения
+                prev = -1
+
+            change = get_simvol(prev, price)
 
             new_list.append(
                 CryptoBrief(
@@ -346,6 +343,7 @@ class CoinMarketCapApi:
                     convert_currency=convert_upper,
                     last_updated=c.get("last_updated") or "",
                     price_change=change,
+                    previous_price=prev,
                 )
             )
             # Установка нового кеша — под локом, атомарно
@@ -375,8 +373,8 @@ class CoinMarketCapApi:
 
     def find_coin(self, name_or_symbol: Union[str, List[str]], *, convert: Optional[str] = None) -> Union[Optional[CryptoBrief], List[CryptoBrief]]:
         """
-        Поиск монеты/монет по тикеру (BTC) или названию (bitcoin).
-        Можно передать одну или несколько валют. Вернёт объект или список объектов. 
+        Поиск по символу (BTC) или имени (bitcoin). Возвращает CryptoBrief или список.
+        Теперь: если монета найдена и её нет в кеше — она добавляется в кеш в валюте self.default_convert.
         """
         if not name_or_symbol:
             return None
@@ -384,19 +382,92 @@ class CoinMarketCapApi:
         queries = [name_or_symbol] if isinstance(name_or_symbol, str) else name_or_symbol
         queries = [q.strip().lower() for q in queries if q]
 
-        found_results = []
+        found_results: List[CryptoBrief] = []
 
         if not self._cache_data:
-            self._refresh_once_blocking(convert=convert or self.default_convert)
+            self._refresh_once_blocking(convert=self.default_convert)
+
+        def _ensure_in_cache_from_symbol_data(symbol_data: Dict[str, Any], src_convert_upper: str, last_updated: str) -> None:
+            """
+            Гарантированно добавляет монету в кеш в self.default_convert, если её там ещё нет.
+            Использует id из symbol_data для запроса цены в нужной валюте кеша.
+            """
+            try:
+                default_upper = self.default_convert.upper()
+                symbol_upper = str(symbol_data["symbol"]).upper()
+
+                with self._lock:
+                    already = symbol_upper in self._index_by_symbol
+                if already:
+                    return
+
+                # Получаем цену в валюте кеша (self.default_convert)
+                cache_price: Optional[float] = None
+                if src_convert_upper == default_upper:
+                    quote_src = (symbol_data.get("quote") or {}).get(default_upper)
+                    if quote_src and "price" in quote_src:
+                        cache_price = float(quote_src["price"])
+                else:
+                    # Дозапрос quotes/latest по id в нужной валюте кеша
+                    url_quotes = self.API_BASE + self.ENDPOINT_QUOTES
+                    headers = {
+                        "Accepts": "application/json",
+                        "X-CMC_PRO_API_KEY": self.api_key,
+                    }
+                    params_cache = {"id": symbol_data["id"], "convert": default_upper}
+                    resp_cache = self._session.get(url_quotes, headers=headers, params=params_cache, timeout=self.request_timeout)
+                    resp_cache.raise_for_status()
+                    payload_cache = resp_cache.json()
+                    symbol_cache = (payload_cache.get("data") or {}).get(str(symbol_data["id"]))
+                    if symbol_cache:
+                        quote_cache = (symbol_cache.get("quote") or {}).get(default_upper)
+                        if quote_cache and "price" in quote_cache:
+                            cache_price = float(quote_cache["price"])
+
+                if cache_price is None:
+                    return  # нечего класть
+
+                # Вычисляем индикатор изменения цены относительно (если) предыдущей
+                with self._lock:
+                    prev = None
+                    if symbol_upper in self._index_by_symbol:
+                        # уже кто-то успел добавить
+                        return
+                    # предыдущей цены нет, так как монеты в кеше не было
+                    change = "*️⃣"
+
+                    # Собираем элемент кеша в валюте default_convert
+                    cb_cache = CryptoBrief(
+                        id=int(symbol_data["id"]),
+                        name=symbol_data["name"],
+                        symbol=symbol_upper,
+                        price=cache_price,
+                        convert_currency=default_upper,
+                        last_updated=last_updated or "",
+                        price_change=change,
+                        previous_price=prev,
+                    )
+
+                    current_list = list(self._cache_data)
+                    current_list.append(cb_cache)
+                    new_tuple = tuple(current_list)
+                    new_index = {c.symbol: i for i, c in enumerate(new_tuple)}
+                    self._cache_data = new_tuple
+                    self._index_by_symbol = new_index
+                    self._last_update_ts = time.time()
+
+            except Exception as ex:
+                if self.verbose:
+                    print(f"find_coin cache add error: {ex}")
 
         for lookup in queries:
-            # 1. Поиск в кеше по symbol
+            # 1) поиск по символу в кеше
             cb = self.get_by_symbol(lookup.upper())
-            if cb: 
+            if cb:
                 found_results.append(cb)
                 continue
 
-            # 2. Поиск в кеше по name
+            # 2) поиск по имени в кеше
             found_in_cache = False
             with self._lock:
                 for coin in self._cache_data:
@@ -407,74 +478,72 @@ class CoinMarketCapApi:
             if found_in_cache:
                 continue
 
-            # 3. Поиск через API (quotes/latest и map)
+            # 3) запросы к API (quotes/latest, затем map -> id при необходимости)
             try:
                 url = self.API_BASE + self.ENDPOINT_QUOTES
                 headers = {
                     "Accepts": "application/json",
                     "X-CMC_PRO_API_KEY": self.api_key,
                 }
-                params = {
-                    "symbol": lookup.upper(),
-                    "convert": convert or self.default_convert,
-                }
+                convert_upper = (convert or self.default_convert).upper()
+
+                # Попытка по символу
+                params = {"symbol": lookup.upper(), "convert": convert_upper}
                 resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
                 resp.raise_for_status()
                 payload = resp.json()
                 data = payload.get("data", {})
                 symbol_data = data.get(lookup.upper())
-                convert_upper = (convert or self.default_convert).upper()
                 if symbol_data:
-                    quote = symbol_data["quote"].get(convert_upper)
-                    if quote:
-                        found_results.append(
-                            CryptoBrief(
-                                id=int(symbol_data["id"]),
-                                name=symbol_data["name"],
-                                symbol=symbol_data["symbol"].upper(),
-                                price=float(quote["price"]),
-                                convert_currency=convert_upper,
-                                last_updated=symbol_data.get("last_updated") or "",
-                                price_change=""
-                            )
+                    quote = (symbol_data.get("quote") or {}).get(convert_upper)
+                    if quote and "price" in quote:
+                        ret_cb = CryptoBrief(
+                            id=int(symbol_data["id"]),
+                            name=symbol_data["name"],
+                            symbol=str(symbol_data["symbol"]).upper(),
+                            price=float(quote["price"]),
+                            convert_currency=convert_upper,
+                            last_updated=symbol_data.get("last_updated") or "",
+                            price_change="",
+                            previous_price=-1
                         )
+                        found_results.append(ret_cb)
+                        # гарантируем добавление в кеш (в валюте self.default_convert)
+                        _ensure_in_cache_from_symbol_data(symbol_data, convert_upper, ret_cb.last_updated)
                         continue
-                # Если не найдено по symbol, пробуем найти coin_id по map (по имени)
-                url_map = self.API_BASE + "/v1/cryptocurrency/map"
+
+                # Фоллбэк: поиск по slug через MAP -> id
+                url_map = self.API_BASE + "/cryptocurrency/map"  # исправлено: без повторного /v1
                 params_map = {"listing_status": "active", "symbol": "", "slug": lookup}
                 resp_map = self._session.get(url_map, headers=headers, params=params_map, timeout=self.request_timeout)
                 resp_map.raise_for_status()
                 map_data = resp_map.json().get("data", [])
                 if map_data:
                     coin_id = map_data[0].get("id")
-                    # второй вызов для quotes/latest по id
-                    params_id = {
-                        "id": coin_id,
-                        "convert": convert or self.default_convert,
-                    }
+                    params_id = {"id": coin_id, "convert": convert_upper}
                     resp_id = self._session.get(url, headers=headers, params=params_id, timeout=self.request_timeout)
                     resp_id.raise_for_status()
                     payload_id = resp_id.json()
-                    symbol_data = payload_id.get("data", {}).get(str(coin_id))
+                    symbol_data = (payload_id.get("data") or {}).get(str(coin_id))
                     if symbol_data:
-                        quote = symbol_data["quote"].get(convert_upper)
-                        if quote:
-                            found_results.append(
-                                CryptoBrief(
-                                    id=int(symbol_data["id"]),
-                                    name=symbol_data["name"],
-                                    symbol=symbol_data["symbol"].upper(),
-                                    price=float(quote["price"]),
-                                    convert_currency=convert_upper,
-                                    last_updated=symbol_data.get("last_updated") or "",
-                                    price_change=""
-                                )
+                        quote = (symbol_data.get("quote") or {}).get(convert_upper)
+                        if quote and "price" in quote:
+                            ret_cb = CryptoBrief(
+                                id=int(symbol_data["id"]),
+                                name=symbol_data["name"],
+                                symbol=str(symbol_data["symbol"]).upper(),
+                                price=float(quote["price"]),
+                                convert_currency=convert_upper,
+                                last_updated=symbol_data.get("last_updated") or "",
+                                price_change="",
+                                previous_price=-1
                             )
+                            found_results.append(ret_cb)
+                            _ensure_in_cache_from_symbol_data(symbol_data, convert_upper, ret_cb.last_updated)
             except Exception as ex:
                 if self.verbose:
                     print(f"find_coin error: {ex}")
 
-        # Возвращаем один объект или список
         if isinstance(name_or_symbol, str):
             return found_results[0] if found_results else None
         return found_results
@@ -597,13 +666,9 @@ class CoinMarketCapApi:
                 prev = prev_prices.get(sym)
             
                 if prev is None:
-                    change = "*️⃣"           # первая загрузка или новая монета
-                elif price > prev:
-                    change = "↗️"
-                elif price < prev:
-                    change = "↘️"
-                else:
-                    change = "🔄"           # без изменения
+                    prev = -1
+
+                change = get_simvol(prev, price)
 
                 new_items[sym] = CryptoBrief(
                 id=int(info["id"]),
@@ -613,6 +678,7 @@ class CoinMarketCapApi:
                 convert_currency=convert_upper,
                 last_updated=info.get("last_updated") or "",
                 price_change=change,
+                previous_price=prev,
                 )
                 found_now_symbols.add(sym.upper())
 
@@ -644,13 +710,9 @@ class CoinMarketCapApi:
             # Проставим change относительно предыдущей цены (если была)
             prev = prev_prices.get(cb.symbol)
             if prev is None:
-                change = "🆗"
-            elif cb.price > prev:
-                change = "↗️"
-            elif cb.price < prev:
-                change = "↘️"
-            else:
-                change = "🔄"
+                prev = -1
+
+            change = get_simvol(prev, price)
 
             # Гарантируем, что валюта совпадает с кешевой (мы вызывали find_coin с self.default_convert)
             new_items[cb.symbol] = CryptoBrief(

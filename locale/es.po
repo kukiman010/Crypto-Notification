@@ -207,7 +207,7 @@ msgid "TR_DEL_FAVORIT_COIN"
 msgstr "Eliminar moneda de favoritos"
 
 msgid "TR_COIN_INFO"
-msgstr "Moneda: {} / {} \nid de la moneda: {} \n\nPrecio: {} {} por 1 {}\n\nÚltima actualización:\n{}"
+msgstr "Moneda: {} / {} \nid de moneda: {} \n\nPrecio: {} {} por 1 {}\n\nNotificaciones:\n{}\nÚltima actualización:\n{}"
 
 msgid "TR_MES_ADD_FAVORIT_COIN"
 msgstr "Moneda {} agregada a favoritos."
@@ -219,7 +219,22 @@ msgid "TR_ADD_NOTIFICATION"
 msgstr "Agregar notificación"
 
 msgid "TR_NOT_FIND_COIN"
-msgstr "Formato de datos no válido. \nNo pudimos encontrar la moneda: {}"
+msgstr "Formato de datos incorrecto. \nNo encontramos tal moneda: {}"
+
+msgid "TR_ADD_NOTIFICATION_MES"
+msgstr "Agregando notificación para {}. Ingrese los datos en el formato:\n<precio> <comentario (opcional)>\n\nTambién puede agregar varias notificaciones a la vez, por ejemplo:\n1013.30 comentario 1\n1050 comentario 2\n...\n1081.30 comentario 10"
+
+msgid "TR_NOTIFICATION_ADD_OK"
+msgstr "Agregadas correctamente {} notificaciones para {}."
+
+msgid "TR_NOTIFICATION_ADD_NOT"
+msgstr "Formato incorrecto, no se pudo agregar la notificación."
+
+msgid "TR_NOTIFY_NOW"
+msgstr "Notificación. \n/{} ha alcanzado el precio {} {}\nComentario: {}"
+
+msgid "TR_NOTIFY_IS_NOT_ADD"
+msgstr "No se han agregado notificaciones aún"
 
 msgid "TR_"
 msgstr ""

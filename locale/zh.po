@@ -207,7 +207,7 @@ msgid "TR_DEL_FAVORIT_COIN"
 msgstr "从收藏夹中移除币种"
 
 msgid "TR_COIN_INFO"
-msgstr "币种：{} / {} \n币种ID：{} \n\n价格：{} {} 每 1 {}\n\n最后更新：\n{}"
+msgstr "币种: {} / {} \n币种ID: {} \n\n价格: {} {} 每 1 {}\n\n通知:\n{}\n最后更新:\n{}"
 
 msgid "TR_MES_ADD_FAVORIT_COIN"
 msgstr "币种 {} 已添加到收藏夹。"
@@ -219,7 +219,22 @@ msgid "TR_ADD_NOTIFICATION"
 msgstr "添加通知"
 
 msgid "TR_NOT_FIND_COIN"
-msgstr "数据格式无效。 \n未找到此币种：{}"
+msgstr "数据格式错误。 \n未找到该币种: {}"
+
+msgid "TR_ADD_NOTIFICATION_MES"
+msgstr "为 {} 添加通知。请按以下格式输入数据：\n<价格> <备注（可选）>\n\n也可以一次添加多个通知，如：\n1013.30 备注1\n1050 备注2\n...\n1081.30 备注10"
+
+msgid "TR_NOTIFICATION_ADD_OK"
+msgstr "成功为 {} 添加了 {} 条通知。"
+
+msgid "TR_NOTIFICATION_ADD_NOT"
+msgstr "格式有误，无法添加通知。"
+
+msgid "TR_NOTIFY_NOW"
+msgstr "通知。 \n/{} 达到价格 {} {}\n备注: {}"
+
+msgid "TR_NOTIFY_IS_NOT_ADD"
+msgstr "尚未添加通知"
 
 msgid "TR_"
 msgstr ""

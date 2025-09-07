@@ -207,7 +207,7 @@ msgid "TR_DEL_FAVORIT_COIN"
 msgstr "Remove coin from favorites"
 
 msgid "TR_COIN_INFO"
-msgstr "Coin: {} / {} \ncoin id: {} \n\nPrice: {} {} per 1 {}\n\nLast update:\n{}"
+msgstr "Coin: {} / {} \ncoin id: {} \n\nPrice: {} {} per 1 {}\n\nNotifications:\n{}\nLast update:\n{}"
 
 msgid "TR_MES_ADD_FAVORIT_COIN"
 msgstr "Coin {} added to favorites."
@@ -219,7 +219,22 @@ msgid "TR_ADD_NOTIFICATION"
 msgstr "Add notification"
 
 msgid "TR_NOT_FIND_COIN"
-msgstr "Invalid data format. \nWe could not find this coin: {}"
+msgstr "Invalid data format. \nWe did not find such a coin: {}"
+
+msgid "TR_ADD_NOTIFICATION_MES"
+msgstr "Adding a notification for {}. Enter data in the format:\n<price> <comment (optional)>\n\nYou can also add multiple notifications at once, for example:\n1013.30 comment 1\n1050 comment 2\n...\n1081.30 comment 10"
+
+msgid "TR_NOTIFICATION_ADD_OK"
+msgstr "Successfully added {} notifications for {}."
+
+msgid "TR_NOTIFICATION_ADD_NOT"
+msgstr "Incorrect format, failed to add notification."
+
+msgid "TR_NOTIFY_NOW"
+msgstr "Notification. \n/{} has reached the price {} {}\nComment: {}"
+
+msgid "TR_NOTIFY_IS_NOT_ADD"
+msgstr "Notifications are not yet added"
 
 msgid "TR_"
 msgstr ""

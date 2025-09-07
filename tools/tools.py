@@ -1,4 +1,5 @@
 import time
+from decimal import Decimal, getcontext, localcontext
 from datetime import datetime, timezone, timedelta
 from systems.logger         import LoggerSingleton
 
@@ -112,14 +113,25 @@ def crypto_trim(number, significant_digits=3):
             crypto_trim(0.000121332423, 3) -> 0.000121
             crypto_trim(3.1346343759531092, 2) -> 3.13
     """
-    s = f"{number:.20f}"  # Предельно длинная строка для точности
+    if number == 0:
+        return 0.0
+
+    # Строгий контроль числа знаков (много больше, чем надо)
+    getcontext().prec = 50
+    d = Decimal(str(number)).normalize()
+
+    # Преобразуем к виду с фиксированной точкой (не экспоненте)
+    s = format(d, 'f')
     if '.' not in s:
-        return int(s)
+        return float(s)
+
     integer, fraction = s.split('.')
-    # Для целых чисел или числа 0
+    # Если целая часть не нулевая — обычное округление
     if int(integer) != 0:
-        return float(integer + '.' + fraction[:significant_digits])
-    # Для дробных чисел после нулей
+        out = f"{integer}.{fraction[:significant_digits]}"
+        return float(out)
+
+    # Для малых чисел — ищем первые significant_digits в дробной части после незначащих нулей
     sig_count = 0
     trim = ''
     for c in fraction:
@@ -128,5 +140,46 @@ def crypto_trim(number, significant_digits=3):
             sig_count += 1
         if sig_count == significant_digits:
             break
-    return float(f"0.{trim}")
+    out = f"0.{trim}"
+    return float(out)
 
+def sci_to_plain(value) -> str:
+    """
+    Преобразует число (в т.ч. в научной нотации) в обычную десятичную строку без 'e/E'.
+    Рекомендуется передавать строку для точного сохранения всех цифр.
+    """
+    # Если пришёл float — сначала переводим в строку с безопасным количеством значимых цифр
+    if isinstance(value, float):
+        # 17 значимых цифр гарантируют корректный раунд-трип IEEE-754 double
+        value = format(value, '.17g')
+
+    # Преобразуем к Decimal через строку (это важно для точности)
+    d = Decimal(str(value))
+
+    # Увеличиваем precision хотя бы до количества цифр мантиссы,
+    # чтобы избежать ненужных округлений при форматировании
+    with localcontext() as ctx:
+        ctx.prec = max(50, len(d.as_tuple().digits))
+        out = format(d, 'f')  # фиксированный формат без экспоненты
+
+    # Если нужно убирать хвостовые нули — раскомментируйте:
+    # if '.' in out:
+    #     out = out.rstrip('0').rstrip('.')
+    return out
+
+
+def is_between(x, now, old, triger):
+    if triger == '>' and now > x:
+        return True
+    elif triger == '<' and now < x:
+        return True
+
+    return False
+
+def get_simvol(prev, price):
+    if price > prev:
+        return "↗️"
+    elif price < prev:
+        return  "↘️"
+    else:
+        return "⏺️"

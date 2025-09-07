@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 class languages_model:
     def __init__(self) -> None:
@@ -165,4 +166,17 @@ class CryptoBrief:
     convert_currency: str
     last_updated: str
     # "", "up" или "down"; на первом запуске остаётся пустой строкой
-    price_change: str = ""
+    price_change: str
+    previous_price: float
+
+
+
+@dataclass(frozen=True)
+class AlertCrypto:
+    id: int
+    user_id: int
+    symbol: str
+    price: float
+    trigger: str
+    coment: str
+    date: datetime
