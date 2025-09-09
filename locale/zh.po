@@ -242,5 +242,11 @@ msgstr "您可以在此选择显示加密货币及其他内容价格的货币。
 msgid "TR_SUCCESSFUL_CURRENCY"
 msgstr "货币设置已成功应用！"
 
+msgid "TR_MENU_TIMEZONE_NAME"
+msgstr "时间设置"
+
+msgid "TR_MENU_CURENCY"
+msgstr "货币显示设置"
+
 msgid "TR_"
 msgstr ""

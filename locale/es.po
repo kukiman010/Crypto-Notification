@@ -242,5 +242,11 @@ msgstr "Aquí puedes elegir la moneda en la que se mostrarán los precios de las
 msgid "TR_SUCCESSFUL_CURRENCY"
 msgstr "¡La configuración de moneda se ha aplicado con éxito!"
 
+msgid "TR_MENU_TIMEZONE_NAME"
+msgstr "Configuración de la hora"
+
+msgid "TR_MENU_CURENCY"
+msgstr "Configuración de la moneda mostrada"
+
 msgid "TR_"
 msgstr ""

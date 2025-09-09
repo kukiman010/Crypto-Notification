@@ -242,5 +242,11 @@ msgstr "Here you can choose the currency in which cryptocurrency and all other p
 msgid "TR_SUCCESSFUL_CURRENCY"
 msgstr "Currency settings have been successfully applied!"
 
+msgid "TR_MENU_TIMEZONE_NAME"
+msgstr "Time settings"
+
+msgid "TR_MENU_CURENCY"
+msgstr "Currency display settings"
+
 msgid "TR_"
 msgstr ""

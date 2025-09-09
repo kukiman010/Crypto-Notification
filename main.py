@@ -204,6 +204,12 @@ def send_price(message):
 
 
 
+@_bot.message_handler(commands=['menu'])
+def menu(message):
+    user = user_verification(message)
+    main_menu(user, message.chat.id)
+
+
 
 
 @_bot.callback_query_handler(func=lambda call: True)
@@ -235,7 +241,7 @@ def debug_callback(call):
 
     if key == 'menu':
         _bot.answer_callback_query(call.id, text = '')
-        # main_menu(user, chat_id, message_id)
+        main_menu(user, chat_id, message_id)
 
     elif key == 'find_coin':
         _bot.answer_callback_query(call.id, text = '')
@@ -243,6 +249,17 @@ def debug_callback(call):
         _db.increment_balance_mes(user.get_user_id())
         send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_FIND_COIN_LABEL'))
 
+    elif key == "menu_language":
+        _bot.answer_callback_query(call.id, text = '')
+        get_language(user, message_id)
+
+    elif key == "menu_time_zone":
+        _bot.answer_callback_query(call.id, text = '')
+        get_time_zone(user, message_id)
+
+    elif key == "menu_currency":
+        _bot.answer_callback_query(call.id, text = '')
+        get_currency(user, message_id)
 
     elif timezone_match:
         _bot.answer_callback_query(call.id, text = '')
@@ -451,7 +468,7 @@ def get_language(user: User, message_id:int = -1):
 
     if message_id >= 0:
         markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
-        send_text(_bot, user.get_language(), t_mes, reply_markup=markup, id_message_for_edit=message_id)
+        send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup, id_message_for_edit=message_id)
     else:
         send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
 
@@ -591,6 +608,25 @@ def action_handler(chatId, user:User, action, text):
         _logger.add_critical('There is no processing of such a scenario: {}, the action will be reset from user {}'.format(action, chatId))
 
 
+
+def main_menu(user: User, charId, id_message = None):
+    t_mes = _locale.find_translation(user.get_language(), 'TR_SETTING')
+    
+    if user.get_action() != '':
+        _db.update_user_action(user.get_user_id(), '')   
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_LANGUAGE'),    callback_data='menu_language') )
+    
+    markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_TIMEZONE_NAME'),    callback_data='menu_time_zone') )
+    markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_CURENCY'),     callback_data='menu_currency') )
+
+    # markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_PREMIUM'),     callback_data='menu_premium') )
+    # markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_SUPPORT'),     callback_data='menu_support') )
+
+
+
+    send_text(_bot, charId, t_mes, reply_markup=markup, id_message_for_edit=id_message)
 
 
 

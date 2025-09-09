@@ -242,5 +242,11 @@ msgstr "Vous pouvez choisir la devise dans laquelle les prix des cryptomonnaies 
 msgid "TR_SUCCESSFUL_CURRENCY"
 msgstr "Les paramètres de la devise ont été appliqués avec succès !"
 
+msgid "TR_MENU_TIMEZONE_NAME"
+msgstr "Réglage de l'heure"
+
+msgid "TR_MENU_CURENCY"
+msgstr "Réglage de la devise affichée"
+
 msgid "TR_"
 msgstr ""

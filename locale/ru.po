@@ -242,5 +242,11 @@ msgstr "Тут можно выбрать валюту в которой буде
 msgid "TR_SUCCESSFUL_CURRENCY"
 msgstr "Настройки валюты успешно применена!"
 
+msgid "TR_MENU_TIMEZONE_NAME"
+msgstr "Настройка времени"
+
+msgid "TR_MENU_CURENCY"
+msgstr "Настройка отображаемой валюты"
+
 msgid "TR_"
 msgstr ""
