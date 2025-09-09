@@ -525,6 +525,9 @@ def action_handler(chatId, user:User, action, text):
         array = []
         coin = _coinApi.get_by_symbol(coin_symbol)
 
+        # crypto_trim()
+        dollar = _curr_price_api.convert( 1, user.get_currency())
+
         if coin == None:
             return
         
@@ -552,7 +555,7 @@ def action_handler(chatId, user:User, action, text):
                 elif number < price_now:
                     trend = '<'
 
-                array.append( (number, comment, trend) )
+                array.append( (number / dollar, comment, trend) )
 
 
         for p, c, t in array:
