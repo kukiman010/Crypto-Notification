@@ -12,7 +12,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "TR_START_MESSAGE"
-msgstr "Bonjour, {} !\n\nJe suis un bot qui vous aide à suivre les cours des cryptomonnaies. Votre langue a été sélectionnée automatiquement comme {} (vous pouvez la changer avec la commande /set_language). Le fuseau horaire est réglé sur {} pour un affichage correct de l'heure — vous pouvez le modifier avec /set_time_zone si besoin.\n\nVoici ce que je peux faire :\n- Afficher les cryptomonnaies populaires\n- Voir vos monnaies favorites\n- Définir des alertes de prix\nBesoin d'aide ? Tapez /menu !"
+msgstr "Bonjour, {} !\n\nJe suis un bot qui vous aide à suivre les taux des crypto-monnaies. Votre langue a été automatiquement définie sur {} (vous pouvez la changer avec la commande /set_language). Le fuseau horaire est réglé sur {} pour un affichage correct de l'heure — vous pouvez le modifier via /set_time_zone. La devise par défaut est {} — vous pouvez également la modifier via /set_currency. \nTous les paramètres sont accessibles dans /menu !\n\nCe que je peux faire :\n- Afficher les crypto-monnaies populaires\n- Afficher vos monnaies favorites\n- Définir des alertes de prix\nSi vous avez besoin d'aide, il y a une section de support dans /menu !"
 
 msgid "TR_GET_LOG"
 msgstr "Vos {} derniers journaux\n\n{}"

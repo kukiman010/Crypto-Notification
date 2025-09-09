@@ -12,7 +12,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "TR_START_MESSAGE"
-msgstr "Hello, {}!\n\nI am a bot that helps you track cryptocurrency rates. Your language has been set to {} automatically (you can change it with /set_language). The time zone is set to {} for accurate time display — if you prefer, you can change it using /set_time_zone.\n\nHere's what I can do:\n- Show popular cryptocurrencies\n- Display favorite coins\n- Set price alerts\nIf you need help, type /menu!"
+msgstr "Hello, {}!\n\nI'm a bot that helps you track cryptocurrency exchange rates. Your language is automatically set to {} (you can change it using /set_language). The time zone is set to {} for correct time display — you can change it with /set_time_zone. The default currency is {} — you can also change it in /set_currency. \nAll settings are available in /menu!\n\nWhat I can do:\n- Show popular cryptocurrencies\n- Display your favorite currencies\n- Set price alerts\nIf you need help, there is a support section in /menu!"
 
 msgid "TR_GET_LOG"
 msgstr "Your last {} log(s)\n\n{}"

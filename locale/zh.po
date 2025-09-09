@@ -12,7 +12,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "TR_START_MESSAGE"
-msgstr "您好，{}！\n\n我是一个帮助您跟踪加密货币汇率的机器人。目前您的语言已自动设置为{}（可通过 /set_language 指令更换）。时区已设置为 {} 以便正确显示时间，如需更改可用 /set_time_zone。\n\n我可以：\n- 展示热门加密货币\n- 查看收藏币种\n- 设置价格提醒\n如需帮助，请输入/menu！"
+msgstr "你好，{}！\n\n我是一个帮助你追踪加密货币汇率的机器人。你的语言已经自动设置为 {}（可以通过 /set_language 更改）。时区设置为 {} 以正确显示时间——你可以通过 /set_time_zone 修改。默认货币为 {} ——如需更改，可在 /set_currency 完成。\n所有设置都可在 /menu 找到！\n\n我可以做的事情：\n- 显示热门加密货币\n- 显示你的常用货币\n- 设置价格提醒\n如果需要帮助，/menu 里有支持部分！"
 
 msgid "TR_GET_LOG"
 msgstr "你最近的{}条日志\n\n{}"
