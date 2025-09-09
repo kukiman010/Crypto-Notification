@@ -236,5 +236,11 @@ msgstr "Notification. \n/{} has reached the price {} {}\nComment: {}"
 msgid "TR_NOTIFY_IS_NOT_ADD"
 msgstr "Notifications are not yet added"
 
+msgid "TR_SET_CURRENCY"
+msgstr "Here you can choose the currency in which cryptocurrency and all other prices will be shown. Currently selected: {}."
+
+msgid "TR_SUCCESSFUL_CURRENCY"
+msgstr "Currency settings have been successfully applied!"
+
 msgid "TR_"
 msgstr ""

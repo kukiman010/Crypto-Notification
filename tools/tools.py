@@ -1,9 +1,11 @@
 import time
+import requests
 from decimal import Decimal, getcontext, localcontext
 from datetime import datetime, timezone, timedelta
 from systems.logger         import LoggerSingleton
+import xml.etree.ElementTree as ET
 
-_logger = LoggerSingleton.new_instance('logs/log_gpt.log')
+_logger = LoggerSingleton.new_instance('logs/log_cripto_notify.log')
 
 def get_time_string(self):
         current_time = time.time()
@@ -104,7 +106,7 @@ def get_current_time_with_utc_offset(offset_hours: int) -> str:
 
 
 
-def crypto_trim(number, significant_digits=3):
+def crypto_trim(number, significant_digits=2):
     """
     Обрезает число после ведущих нулей и первой значимой цифры,
     оставляя заданное количество значимых знаков.
@@ -183,3 +185,31 @@ def get_simvol(prev, price):
         return  "↘️"
     else:
         return "⏺️"
+
+
+def usd_to_currency(target_code: str) -> float:
+    """
+    Возвращает курс USD к target_code (например, 'CNY', 'EUR', 'RUB')
+    по данным Центробанка РФ на сегодня.
+    """
+    url = 'https://www.cbr.ru/scripts/XML_daily.asp'
+    response = requests.get(url)
+    tree = ET.fromstring(response.content)
+    rates = {}
+    for code in ['USD', target_code]:
+        for valute in tree.findall('Valute'):
+            if valute.find('CharCode').text == code:
+                value = float(valute.find('Value').text.replace(',', '.'))
+                nominal = int(valute.find('Nominal').text)
+                rates[code] = value / nominal
+                break
+
+    if target_code == 'RUB':
+        return rates['USD']
+    elif target_code in rates:
+        return rates['USD'] / rates[target_code]
+    else:
+        raise ValueError(f"Валюта {target_code} не найдена в справочнике ЦБ РФ")
+
+
+

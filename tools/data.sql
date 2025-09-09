@@ -7,7 +7,8 @@ create table users(
     tariff                  INT,
     type                    TEXT,
     language_code           TEXT,
-    favorit_coins           TEXT[],
+    currency_code           TEXT DEFAULT 'USD',
+    favorit_coins           TEXT[] DEFAULT '{}',
     wait_action             TEXT DEFAULT '',
     last_balance_mes_id     BIGINT DEFAULT 0,
     count_post_balance_mes  INT DEFAULT 0,
@@ -40,8 +41,7 @@ CREATE TABLE crypto_notifications (
 
 
 
-create table time_zone
-(
+create table time_zone (
     code_time               INT UNIQUE,
     _isView                 BOOLEAN DEFAULT TRUE,
     def_lang_code           TEXT,                   --- неужен для более удобно определения временной зоны по языку интерфейса пользователя
@@ -49,6 +49,11 @@ create table time_zone
 );
 
 
+CREATE TABLE  currencies (
+    currency_name           TEXT UNIQUE,
+    code                    TEXT UNIQUE,
+    _isView                 BOOLEAN
+);
 
 
 -- create table premium
@@ -300,6 +305,7 @@ insert into default_data values ('global_payment',                  'True');
 insert into default_data values ('last_activity_autoupdate',        '5');
 insert into default_data values ('support_chat',                    '@assistant_gpts_help');
 insert into default_data values ('time_zone',                       '3');
+insert into default_data values ('autoupdate_currency',             '4');
 
 
 insert into languages values ('Chine',      'zh', True);
@@ -334,3 +340,9 @@ insert into time_zone values (9,    True,   'ja,ko',        'UTC +9 東京, 서�
 insert into time_zone values (10,   True,   'en,ru',        'UTC +10 Sydney, Владивосток');
 insert into time_zone values (11,   True,   'en',           'UTC +11 Honiara, Port Vila');
 insert into time_zone values (12,   True,   'en',           'UTC +12 Auckland, Suva');
+
+
+insert into currencies values ('Dollar ($)','USD',          True);
+insert into currencies values ('Euro (€)',  'EUR',          True);
+insert into currencies values ('Рубль (₽)', 'RUB',          True);
+insert into currencies values ('Yuán (¥)',  'CNY',          True);

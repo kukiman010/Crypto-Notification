@@ -236,5 +236,11 @@ msgstr "通知。 \n/{} 达到价格 {} {}\n备注: {}"
 msgid "TR_NOTIFY_IS_NOT_ADD"
 msgstr "尚未添加通知"
 
+msgid "TR_SET_CURRENCY"
+msgstr "您可以在此选择显示加密货币及其他内容价格的货币。目前选择的是：{}。"
+
+msgid "TR_SUCCESSFUL_CURRENCY"
+msgstr "货币设置已成功应用！"
+
 msgid "TR_"
 msgstr ""

@@ -5,6 +5,7 @@ class User:
         self._tariff =                  1  # 0-lock, 1-default user, 2 >= - donater
         self._type_user=                ''
         self._lang_code =               ''
+        self._currency_code =           'USD'
         self._favorit_coins =           [] # array
         self._action =                  ''
         self._last_balance_mes_id=      ''
@@ -21,12 +22,13 @@ class User:
      
 
 
-    def set_data(self, user_id, user_name, tariff, type, language_code, favorit_coins, wait_action, last_balance_mes_id, count_post_balance_mes, code_time, last_login, registration):
+    def set_data(self, user_id, user_name, tariff, type, language_code, currency_code, favorit_coins, wait_action, last_balance_mes_id, count_post_balance_mes, code_time, last_login, registration):
         self._user_id =                 user_id
         self._name =                    user_name
         self._tariff =                  tariff
         self._type_user =               type
         self._lang_code =               language_code
+        self._currency_code =           currency_code
         self._favorit_coins =           favorit_coins
         self._action =                  wait_action
         self._last_balance_mes_id=      last_balance_mes_id
@@ -47,6 +49,8 @@ class User:
         return self._type_user
     def get_language(self):
         return self._lang_code
+    def get_currency(self):
+        return self._currency_code
     def get_favorit_coins(self):
         return self._favorit_coins
     def get_action(self):
