@@ -4,6 +4,7 @@ from control.timezone   import TimeZone_model
 from control.languages  import languages_model
 from control.user       import User
 from control.data_models import AlertCrypto
+from control.currencies import CurrencyModel
 
 
 class dbApi:
@@ -27,7 +28,7 @@ class dbApi:
 
         for i in data:
             user = User()
-            user.set_data(i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7], i[8], i[9] , i[10], i[11])
+            user.set_data(i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7], i[8], i[9] , i[10], i[11], i[12])
             return user
 
         return None
@@ -136,6 +137,22 @@ class dbApi:
             ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], trigger=i[4], coment=i[5], date=i[6])
             array.append( ac )
         return array
+    
+    def get_currencies(self):
+        query = "select * from currencies;"
+        data = self.db.execute_query(query)
+        array = []
+
+        for i in data:
+            cm = CurrencyModel(currency_name=i[0], code=i[1], isView=i[2])
+            array.append( cm )
+        return array
+
+    def set_currency(self, userId, code):
+        query = "update users set currency_code='{}' where user_id={};".format(code, userId)
+        self.db.execute_query(query)
+
+
 
     def __del__(self):
         self.db.close_pool()

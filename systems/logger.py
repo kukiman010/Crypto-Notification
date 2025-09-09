@@ -40,7 +40,7 @@ class LoggerSingleton(object):
 
     def add_info(self, mes):
         self.logger.info(mes)
-        print(mes)
+        print(GREEN + mes + RESET)
 
     def add_warning(self, mes):
         self.logger.warning(mes)
