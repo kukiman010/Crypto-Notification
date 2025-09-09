@@ -552,8 +552,6 @@ def action_handler(chatId, user:User, action, text):
 
         array = []
         coin = _coinApi.get_by_symbol(coin_symbol)
-
-        # crypto_trim()
         dollar = _curr_price_api.convert( 1, user.get_currency())
 
         if coin == None:
@@ -625,7 +623,7 @@ def main_menu(user: User, charId, id_message = None):
     # markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_SUPPORT'),     callback_data='menu_support') )
 
 
-
+    _db.increment_balance_mes(user.get_user_id())
     send_text(_bot, charId, t_mes, reply_markup=markup, id_message_for_edit=id_message)
 
 
