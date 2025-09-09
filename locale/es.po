@@ -12,7 +12,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "TR_START_MESSAGE"
-msgstr "¡Hola, {}!\n\nSoy un bot que te ayuda a seguir los precios de las criptomonedas. Tu idioma se ha seleccionado automáticamente como {} (puedes cambiarlo con el comando /set_language). La zona horaria está configurada en {} para mostrar la hora correctamente; si lo deseas, puedes ajustarla con /set_time_zone.\n\n¿En qué te ayudo?\n- Mostrar criptomonedas populares\n- Ver tus monedas favoritas\n- Configurar alertas de precios\nSi necesitas ayuda, escribe /menu!"
+msgstr "¡Hola, {}!\n\nSoy un bot que te ayuda a seguir los tipos de cambio de criptomonedas. Tu idioma se ha seleccionado automáticamente como {} (puedes cambiarlo con el comando /set_language). La zona horaria está configurada en {} para mostrar la hora correctamente — puedes cambiarla usando /set_time_zone. La moneda predeterminada es {} — también puedes cambiarla en /set_currency. \n¡Todas las configuraciones están disponibles en /menu!\n\nLo que puedo hacer:\n- Mostrar criptomonedas populares\n- Mostrar tus monedas favoritas\n- Configurar alertas de precios\nSi necesitas ayuda — hay una sección de soporte en /menu!"
 
 msgid "TR_GET_LOG"
 msgstr "Tus últimos {} registro(s)\n\n{}"
