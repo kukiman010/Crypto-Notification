@@ -497,7 +497,8 @@ def action_handler(chatId, user:User, action, text):
             else:
                 simvol = ' ↘️'
 
-            notify_mes += str(crypto_trim(notify.price,4)) + simvol + '\n'
+            
+            notify_mes += str(crypto_trim( _curr_price_api.convert( notify.price, user.get_currency()), 4 )) + simvol + '\n'
         
         if len(notifications) < 0:
             notify_mes = _locale.find_translation(user.get_language(), 'TR_NOTIFY_IS_NOT_ADD')

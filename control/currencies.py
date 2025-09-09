@@ -132,6 +132,8 @@ class CurrencyRatesWrapper:
         now = datetime.now()
         return (now - self.last_updated) > timedelta(hours=hours)
 
+
+
     def convert(self, amount: float, to_code: str, from_code: str = 'USD') -> float:
         """Конвертировать сумму из одной валюты в другую (по актуальным курсам)"""
         from_cur = self.currencies.get(from_code.upper())
@@ -140,8 +142,11 @@ class CurrencyRatesWrapper:
             raise ValueError(f'Валюта {from_code} отсутствует!')
         if not to_cur:
             raise ValueError(f'Валюта {to_code} отсутствует!')
-        amount_in_usd = amount / from_cur.rate
-        return amount_in_usd * to_cur.rate
+        amount_decimal = float(str(amount))
+        amount_in_usd = amount_decimal / from_cur.rate
+        result = amount_in_usd * to_cur.rate
+        return float(result)
+
 
     def get_info(self):
         """Получить текущее состояние массива валют"""
