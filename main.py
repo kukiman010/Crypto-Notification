@@ -90,11 +90,11 @@ def on_update_users_price():
 
 def on_check_notifications():
     notifications = _db.get_notifications()
-    user:User = None
+    user = None
+    user_id = None  # храним текущего пользователя
     list_coin = set()
     for notify in notifications:
         list_coin.add(notify.symbol)
-        
 
     coins = _coinApi.get_by_symbols(list_coin)
 
@@ -102,16 +102,26 @@ def on_check_notifications():
         price_now = coin.price
         price_old = coin.previous_price
 
-        if price_old == -1 or price_old == None:
+        if price_old == -1 or price_old is None:
             continue
 
         for notify in notifications:
             if coin.symbol == notify.symbol:
                 if is_between(notify.price, price_now, price_old, notify.trigger):
-                    if not user.is_valid() and user.get_user_id() != notify.user_id:
+                    # Получаем пользователя, если его ещё нет или он другой
+                    if user is None or not user.is_valid() or user.get_user_id() != notify.user_id:
                         user = user_verification_easy(notify.user_id)
 
-                    send_text(_bot, notify.user_id, _locale.find_translation(user.get_language(), 'TR_NOTIFY_NOW').format(notify.symbol, crypto_trim(_curr_price_api.convert( price_now, user.get_currency())), user.get_currency(), notify.coment) )
+                    send_text(
+                        _bot,
+                        notify.user_id,
+                        _locale.find_translation(user.get_language(), 'TR_NOTIFY_NOW').format(
+                            notify.symbol, 
+                            crypto_trim(price_now),
+                            coin.convert_currency,
+                            notify.coment
+                        )
+                    )
                     _db.increment_balance_mes(notify.user_id)
                     _db.del_notification(notify.id)
                     continue
