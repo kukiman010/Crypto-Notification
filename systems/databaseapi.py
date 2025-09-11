@@ -96,8 +96,8 @@ class dbApi:
         query = "SELECT update_wait_action({}, '{}'); ".format(userId, action)
         self.db.execute_query(query)
 
-    def increment_balance_mes(self, userId):
-        query = "SELECT increment_post_balance_mes({});".format(userId)
+    def increment_balance_mes(self, userId, index=1):
+        query = "SELECT increment_post_balance_mes({}, {});".format(userId, index)
         self.db.execute_query(query)
 
     def get_favorit_coins_list(self, days = 0):

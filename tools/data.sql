@@ -215,14 +215,18 @@ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION increment_post_balance_mes(p_user_id BIGINT)
+CREATE OR REPLACE FUNCTION increment_post_balance_mes(
+    p_user_id BIGINT,
+    p_increment_value INTEGER DEFAULT 1
+)
 RETURNS void AS $$
 BEGIN
     UPDATE users
-    SET count_post_balance_mes = count_post_balance_mes + 1
+    SET count_post_balance_mes = count_post_balance_mes + p_increment_value
     WHERE user_id = p_user_id;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 
@@ -233,25 +237,41 @@ DECLARE
 BEGIN
     IF days > 0 THEN
         SELECT ARRAY(
-            SELECT DISTINCT unnest_coin
-            FROM users, unnest(favorit_coins) AS unnest_coin
-            WHERE favorit_coins IS NOT NULL
-              AND last_login >= NOW() - INTERVAL '1 day' * days
-            ORDER BY unnest_coin
+            SELECT DISTINCT coin FROM (
+                -- Из users
+                SELECT unnest_coin AS coin
+                FROM users, unnest(favorit_coins) AS unnest_coin
+                WHERE favorit_coins IS NOT NULL
+                  AND last_login >= NOW() - INTERVAL '1 day' * days
+                UNION
+                -- Из crypto_notifications
+                SELECT crypto_symbol AS coin
+                FROM crypto_notifications
+                WHERE created_at >= NOW() - INTERVAL '1 day' * days
+            ) subq
+            ORDER BY coin
         )
         INTO unique_coins;
     ELSE
         SELECT ARRAY(
-            SELECT DISTINCT unnest_coin
-            FROM users, unnest(favorit_coins) AS unnest_coin
-            WHERE favorit_coins IS NOT NULL
-            ORDER BY unnest_coin
+            SELECT DISTINCT coin FROM (
+                -- Из users
+                SELECT unnest_coin AS coin
+                FROM users, unnest(favorit_coins) AS unnest_coin
+                WHERE favorit_coins IS NOT NULL
+                UNION
+                -- Из crypto_notifications
+                SELECT crypto_symbol AS coin
+                FROM crypto_notifications
+            ) subq
+            ORDER BY coin
         )
         INTO unique_coins;
     END IF;
     RETURN unique_coins;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 CREATE OR REPLACE FUNCTION add_crypto_notification(

@@ -70,7 +70,10 @@ class CoinGeckoHistory:
             else:
                 ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y, %b %d'))
 
-            ax.yaxis.set_major_formatter( ticker.FuncFormatter(lambda y, _: f'{y:,.0f}') )
+            # Форматируем ось цен
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f'{multi_number_processing_to_str(y, 2)}'))
+
+
 
             plt.xticks(rotation=40)
             plt.xlabel("Дата")

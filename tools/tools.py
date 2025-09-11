@@ -1,6 +1,6 @@
 import time
 import requests
-from decimal import Decimal, getcontext, localcontext
+from decimal import Decimal, getcontext, localcontext, ROUND_DOWN
 from datetime import datetime, timezone, timedelta
 from systems.logger         import LoggerSingleton
 import xml.etree.ElementTree as ET
@@ -106,7 +106,7 @@ def get_current_time_with_utc_offset(offset_hours: int) -> str:
 
 
 
-def crypto_trim(number, significant_digits=2):
+def crypto_trim(number, significant_digits=2) -> float:
     """
     Обрезает число после ведущих нулей и первой значимой цифры,
     оставляя заданное количество значимых знаков.
@@ -115,35 +115,29 @@ def crypto_trim(number, significant_digits=2):
             crypto_trim(0.000121332423, 3) -> 0.000121
             crypto_trim(3.1346343759531092, 2) -> 3.13
     """
+    if significant_digits < 1:
+        raise ValueError("significant_digits must be >= 1")
+    if not isinstance(number, (int, float)):
+        raise TypeError("number must be int or float")
     if number == 0:
         return 0.0
 
-    # Строгий контроль числа знаков (много больше, чем надо)
     getcontext().prec = 50
-    d = Decimal(str(number)).normalize()
+    sign = -1 if number < 0 else 1
+    d = Decimal(str(abs(number)))
 
-    # Преобразуем к виду с фиксированной точкой (не экспоненте)
-    s = format(d, 'f')
-    if '.' not in s:
-        return float(s)
+    if d >= 1:
+        # s знаков после запятой
+        quantum = Decimal(f"1e-{significant_digits}")
+        trimmed = d.quantize(quantum, rounding=ROUND_DOWN)
+    else:
+        # s значащих цифр
+        e = d.adjusted()                 # порядок старшей значащей цифры
+        quantum = Decimal(f"1e{e - significant_digits + 1}")
+        trimmed = d.quantize(quantum, rounding=ROUND_DOWN)
 
-    integer, fraction = s.split('.')
-    # Если целая часть не нулевая — обычное округление
-    if int(integer) != 0:
-        out = f"{integer}.{fraction[:significant_digits]}"
-        return float(out)
+    return float(trimmed) * sign
 
-    # Для малых чисел — ищем первые significant_digits в дробной части после незначащих нулей
-    sig_count = 0
-    trim = ''
-    for c in fraction:
-        trim += c
-        if c != '0':
-            sig_count += 1
-        if sig_count == significant_digits:
-            break
-    out = f"0.{trim}"
-    return float(out)
 
 def sci_to_plain(value) -> str:
     """
@@ -170,7 +164,7 @@ def sci_to_plain(value) -> str:
     return out
 
 
-def is_between(x, now, triger):
+def is_between(x, now, triger) -> bool:
     if triger == '>' and now > x:
         return True
     elif triger == '<' and now < x:
@@ -178,7 +172,7 @@ def is_between(x, now, triger):
 
     return False
 
-def get_simvol(prev, price):
+def get_simvol(prev, price) -> str:
     if price > prev:
         return "↗️"
     elif price < prev:

@@ -160,6 +160,7 @@ def send_welcome(message):
     send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_START_MESSAGE').format(user.get_name(), language, zone_str, user.get_currency()) )
 
     balance_user(user.get_user_id(), False)
+    _db.update_last_login(user.get_user_id())
 
 
 
@@ -178,6 +179,7 @@ def send_price(message):
 
     if user.is_valid():
         balance_user(user.get_user_id(), False)
+        _db.update_last_login(user.get_user_id())
 
 
 
@@ -185,6 +187,7 @@ def send_price(message):
 def menu(message):
     user = user_verification(message)
     main_menu(user, message.chat.id)
+    _db.update_last_login(user.get_user_id())
 
 
 
@@ -192,6 +195,8 @@ def menu(message):
 @_bot.callback_query_handler(func=lambda call: True)
 def debug_callback(call):
     user = user_verification_easy(call.message.chat.id)
+    _db.update_last_login(user.get_user_id())
+
     key = call.data
     message_id = call.message.message_id
     chat_id = call.message.chat.id
@@ -302,7 +307,8 @@ def debug_callback(call):
 def handle_user_message(message):
     user = user_verification(message)
     text = message.text
-    _db.increment_balance_mes(user.get_user_id())
+    # _db.increment_balance_mes(user.get_user_id())
+    _db.update_last_login(user.get_user_id())
 
     action = user.get_action()
     if action != '' and action != None:
@@ -400,7 +406,6 @@ def user_verification(message) -> User:
         _logger.add_info('Cоздан новый пользователь {} {}'.format(message.from_user.id, name))
     
     user = _db.get_user(message.from_user.id)
-    _db.update_last_login(user.get_user_id())
 
     if user.get_tariff() == 0: # block
         return None
@@ -415,7 +420,6 @@ def user_verification_easy(userId) -> User:
         return None
     else:
         user = _db.get_user(userId)
-        _db.update_last_login(user.get_user_id())
         return user
     
 
@@ -525,6 +529,7 @@ def action_handler(chatId, user:User, action, text):
         markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_ADD_NOTIFICATION'),        callback_data='add_notify_{}'.format(coin.symbol)) )
 
         send_text(_bot, chatId, mes, markup, photo=photo_byte)
+        _db.increment_balance_mes(user.get_user_id(), 2)
         return
 
     elif add_notify_match:
