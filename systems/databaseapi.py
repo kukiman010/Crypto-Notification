@@ -96,8 +96,8 @@ class dbApi:
         query = "SELECT update_wait_action({}, '{}'); ".format(userId, action)
         self.db.execute_query(query)
 
-    def increment_balance_mes(self, userId):
-        query = "SELECT increment_post_balance_mes({});".format(userId)
+    def increment_balance_mes(self, userId, index=1):
+        query = "SELECT increment_post_balance_mes({}, {});".format(userId, index)
         self.db.execute_query(query)
 
     def get_favorit_coins_list(self, days = 0):
@@ -107,8 +107,8 @@ class dbApi:
     
 
 
-    def add_notification(self, userId, symbol, price, trigger, comment):
-        query = "SELECT add_crypto_notification({}, '{}', {}, '{}', '{}');".format(userId, symbol, price, trigger, comment)
+    def add_notification(self, userId, symbol, price, price_code, trigger, comment):
+        query = "SELECT add_crypto_notification({}, '{}', {}, '{}', '{}', '{}');".format(userId, symbol, price, price_code, trigger, comment)
         self.db.execute_query(query)
 
     def del_notification(self, id):
@@ -124,7 +124,7 @@ class dbApi:
         array = []
 
         for i in data:
-            ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], trigger=i[4], coment=i[5], date=i[6])
+            ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], price_code=i[4], trigger=i[5], coment=i[6], date=i[7])
             array.append( ac )
         return array
 
@@ -134,7 +134,7 @@ class dbApi:
         array = []
 
         for i in data:
-            ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], trigger=i[4], coment=i[5], date=i[6])
+            ac = AlertCrypto(id=i[0], user_id=i[1], symbol=i[2], price=i[3], price_code=i[4], trigger=i[5], coment=i[6], date=i[7])
             array.append( ac )
         return array
     

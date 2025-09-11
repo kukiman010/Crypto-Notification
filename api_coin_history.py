@@ -5,9 +5,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 
 from systems.logger         import LoggerSingleton
-from tools.tools            import crypto_trim
+from tools.tools            import multi_number_processing_to_str
 
 
 
@@ -49,12 +50,17 @@ class CoinGeckoHistory:
         return result
 
 
-    def plot_history(self, symbol: str, days: str = '30', vs_currency: str = 'usd'):
+    def plot_history(self, symbol: str, days: str = '30', vs_currency: str = 'usd', rate: float = 1.0, rate_currency: str = None):
         try:
             history = self.get_history(symbol, days, vs_currency)
             xs, ys = zip(*history)
+
+            # Преобразуем значения согласно курсу
+            ys = [y * rate for y in ys]
+            display_currency = rate_currency.upper() if rate_currency else vs_currency.upper()
+
             fig, ax = plt.subplots(figsize=(11, 5))
-            ax.plot(xs, ys, label=f"{symbol.upper()} ({vs_currency.upper()})")
+            ax.plot(xs, ys, label=f"{symbol.upper()} ({display_currency})")
 
             # Форматируем ось дат
             if days in ['1', '1.0', 1]:
@@ -64,25 +70,28 @@ class CoinGeckoHistory:
             else:
                 ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y, %b %d'))
 
+            # Форматируем ось цен
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f'{multi_number_processing_to_str(y, 2)}'))
+
+
+
             plt.xticks(rotation=40)
             plt.xlabel("Дата")
-            plt.ylabel(f"Цена, {vs_currency.upper()}")
+            plt.ylabel(f"Цена, {display_currency}")
             plt.title(f"История {symbol.upper()} за {days} дней")
             plt.legend()
             plt.grid(True)
             plt.tight_layout()
 
-            # Аннотация: просто текст цены у последней точки
+            # Аннотация: цена последней точки
             last_x = xs[-1]
             last_y = ys[-1]
-            # num = crypto_trim(last_y, 3)
             ax.text(
-                last_x, last_y, f"{crypto_trim(last_y, 3)} {vs_currency.upper()}",
+                last_x, last_y, f"{multi_number_processing_to_str(last_y, 3)} {display_currency}",
                 fontsize=11, color='red', ha='right', va='bottom',
                 fontweight='bold',
                 bbox=dict(facecolor='white', edgecolor='red', boxstyle='round,pad=0.3', alpha=0.7)
             )
-
 
             bio = io.BytesIO()
             plt.savefig(bio, format='png', bbox_inches='tight')
@@ -91,12 +100,11 @@ class CoinGeckoHistory:
             return bio
 
         except Exception as e:
-            # Пишем в лог ошибку
             import traceback
             error_message = f'Ошибка в plot_history: {e}\n{traceback.format_exc()}'
             self._logger.add_error(error_message)
-            # Можно также добавить return None, чтобы приложение не падало
             return None
+
 
 
         

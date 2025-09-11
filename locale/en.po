@@ -222,7 +222,7 @@ msgid "TR_NOT_FIND_COIN"
 msgstr "Invalid data format. \nWe did not find such a coin: {}"
 
 msgid "TR_ADD_NOTIFICATION_MES"
-msgstr "Adding a notification for {}. Enter data in the format:\n<price> <comment (optional)>\n\nYou can also add multiple notifications at once, for example:\n1013.30 comment 1\n1050 comment 2\n...\n1081.30 comment 10"
+msgstr "Adding a notification for {} in currency {}. Enter data in the format:\n<price> <comment (optional)>\n\nYou can also add several notifications at once, for example:\n1013.30 comment 1\n1050 comment 2\n...\n1081.30 comment 10"
 
 msgid "TR_NOTIFICATION_ADD_OK"
 msgstr "Successfully added {} notifications for {}."

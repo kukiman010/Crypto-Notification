@@ -34,6 +34,7 @@ CREATE TABLE crypto_notifications (
     user_id                 BIGINT NOT NULL,
     crypto_symbol           VARCHAR(10) NOT NULL,
     target_price            NUMERIC(18, 8) NOT NULL,
+    price_code              VARCHAR(6) NOT NULL,
     trigger_direction       VARCHAR(8) NOT NULL, -- 'above' или 'below'
     comment                 TEXT,
     created_at              TIMESTAMP DEFAULT NOW()
@@ -214,14 +215,18 @@ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION increment_post_balance_mes(p_user_id BIGINT)
+CREATE OR REPLACE FUNCTION increment_post_balance_mes(
+    p_user_id BIGINT,
+    p_increment_value INTEGER DEFAULT 1
+)
 RETURNS void AS $$
 BEGIN
     UPDATE users
-    SET count_post_balance_mes = count_post_balance_mes + 1
+    SET count_post_balance_mes = count_post_balance_mes + p_increment_value
     WHERE user_id = p_user_id;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 
@@ -232,19 +237,34 @@ DECLARE
 BEGIN
     IF days > 0 THEN
         SELECT ARRAY(
-            SELECT DISTINCT unnest_coin
-            FROM users, unnest(favorit_coins) AS unnest_coin
-            WHERE favorit_coins IS NOT NULL
-              AND last_login >= NOW() - INTERVAL '1 day' * days
-            ORDER BY unnest_coin
+            SELECT DISTINCT coin FROM (
+                -- Из users
+                SELECT unnest_coin AS coin
+                FROM users, unnest(favorit_coins) AS unnest_coin
+                WHERE favorit_coins IS NOT NULL
+                  AND last_login >= NOW() - INTERVAL '1 day' * days
+                UNION
+                -- Из crypto_notifications
+                SELECT crypto_symbol AS coin
+                FROM crypto_notifications
+                WHERE created_at >= NOW() - INTERVAL '1 day' * days
+            ) subq
+            ORDER BY coin
         )
         INTO unique_coins;
     ELSE
         SELECT ARRAY(
-            SELECT DISTINCT unnest_coin
-            FROM users, unnest(favorit_coins) AS unnest_coin
-            WHERE favorit_coins IS NOT NULL
-            ORDER BY unnest_coin
+            SELECT DISTINCT coin FROM (
+                -- Из users
+                SELECT unnest_coin AS coin
+                FROM users, unnest(favorit_coins) AS unnest_coin
+                WHERE favorit_coins IS NOT NULL
+                UNION
+                -- Из crypto_notifications
+                SELECT crypto_symbol AS coin
+                FROM crypto_notifications
+            ) subq
+            ORDER BY coin
         )
         INTO unique_coins;
     END IF;
@@ -253,24 +273,38 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 CREATE OR REPLACE FUNCTION add_crypto_notification(
     p_user_id BIGINT,
     p_crypto_symbol VARCHAR,
     p_target_price NUMERIC,
+    p_price_code VARCHAR,
     p_trigger_direction VARCHAR, 
     p_comment TEXT DEFAULT NULL
 ) RETURNS VOID AS $$
 BEGIN
-    -- Простая проверка на корректность значения trigger_direction
     IF LOWER(p_trigger_direction) NOT IN ('>', '<', '=') THEN
-        RAISE EXCEPTION 'Некорректное значение trigger_direction. Используйте only ''>'', ''<'', ''=''.';
+        RAISE EXCEPTION 'Некорректное значение trigger_direction. Используйте только ''>'', ''<'', ''=''''.';
     END IF;
 
-    INSERT INTO crypto_notifications(user_id, crypto_symbol, target_price, trigger_direction, comment)
-    VALUES (p_user_id, UPPER(p_crypto_symbol), p_target_price, LOWER(p_trigger_direction), p_comment);
+    INSERT INTO crypto_notifications(
+        user_id,
+        crypto_symbol,
+        target_price,
+        price_code,
+        trigger_direction,
+        comment
+    )
+    VALUES (
+        p_user_id,
+        UPPER(p_crypto_symbol),
+        p_target_price,
+        UPPER(p_price_code),
+        LOWER(p_trigger_direction),
+        p_comment
+    );
 END;
 $$ LANGUAGE plpgsql;
-
 
 
 CREATE OR REPLACE FUNCTION delete_crypto_notification(p_id INT)

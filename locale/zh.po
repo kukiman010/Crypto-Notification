@@ -222,7 +222,7 @@ msgid "TR_NOT_FIND_COIN"
 msgstr "数据格式错误。 \n未找到该币种: {}"
 
 msgid "TR_ADD_NOTIFICATION_MES"
-msgstr "为 {} 添加通知。请按以下格式输入数据：\n<价格> <备注（可选）>\n\n也可以一次添加多个通知，如：\n1013.30 备注1\n1050 备注2\n...\n1081.30 备注10"
+msgstr "为 {} 添加货币 {} 的通知。请输入以下格式的数据：\n<价格> <备注（可选）>\n\n您也可以一次添加多个通知，例如：\n1013.30 备注1\n1050 备注2\n...\n1081.30 备注10"
 
 msgid "TR_NOTIFICATION_ADD_OK"
 msgstr "成功为 {} 添加了 {} 条通知。"
