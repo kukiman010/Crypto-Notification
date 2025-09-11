@@ -176,6 +176,7 @@ class AlertCrypto:
     user_id: int
     symbol: str
     price: float
+    price_code: str
     trigger: str
     coment: str
     date: datetime

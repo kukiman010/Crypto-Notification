@@ -170,7 +170,7 @@ def sci_to_plain(value) -> str:
     return out
 
 
-def is_between(x, now, old, triger):
+def is_between(x, now, triger):
     if triger == '>' and now > x:
         return True
     elif triger == '<' and now < x:
@@ -212,4 +212,19 @@ def usd_to_currency(target_code: str) -> float:
         raise ValueError(f"Валюта {target_code} не найдена в справочнике ЦБ РФ")
 
 
+def float_to_spaced_str(num: float) -> str:
+    sign = '-' if num < 0 else ''
+    num = abs(num)
+    int_part, dot, frac_part = str(num).partition('.')
+    # Делаем группировку по 3 цифры
+    int_part_spaced = ' '.join([int_part[max(i-3,0):i] for i in range(len(int_part), 0, -3)][::-1])
+    # Собираем обратно с дробной частью, если она есть и не пуста
+    result = sign + int_part_spaced
+    if frac_part:
+        result += '.' + frac_part
+    return result
 
+
+def multi_number_processing_to_str( price:float, significant_digits=2) -> str:
+    return float_to_spaced_str( crypto_trim(  price, significant_digits ) )
+    

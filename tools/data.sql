@@ -34,6 +34,7 @@ CREATE TABLE crypto_notifications (
     user_id                 BIGINT NOT NULL,
     crypto_symbol           VARCHAR(10) NOT NULL,
     target_price            NUMERIC(18, 8) NOT NULL,
+    price_code              VARCHAR(6) NOT NULL,
     trigger_direction       VARCHAR(8) NOT NULL, -- 'above' или 'below'
     comment                 TEXT,
     created_at              TIMESTAMP DEFAULT NOW()
@@ -257,20 +258,33 @@ CREATE OR REPLACE FUNCTION add_crypto_notification(
     p_user_id BIGINT,
     p_crypto_symbol VARCHAR,
     p_target_price NUMERIC,
+    p_price_code VARCHAR,
     p_trigger_direction VARCHAR, 
     p_comment TEXT DEFAULT NULL
 ) RETURNS VOID AS $$
 BEGIN
-    -- Простая проверка на корректность значения trigger_direction
     IF LOWER(p_trigger_direction) NOT IN ('>', '<', '=') THEN
-        RAISE EXCEPTION 'Некорректное значение trigger_direction. Используйте only ''>'', ''<'', ''=''.';
+        RAISE EXCEPTION 'Некорректное значение trigger_direction. Используйте только ''>'', ''<'', ''=''''.';
     END IF;
 
-    INSERT INTO crypto_notifications(user_id, crypto_symbol, target_price, trigger_direction, comment)
-    VALUES (p_user_id, UPPER(p_crypto_symbol), p_target_price, LOWER(p_trigger_direction), p_comment);
+    INSERT INTO crypto_notifications(
+        user_id,
+        crypto_symbol,
+        target_price,
+        price_code,
+        trigger_direction,
+        comment
+    )
+    VALUES (
+        p_user_id,
+        UPPER(p_crypto_symbol),
+        p_target_price,
+        UPPER(p_price_code),
+        LOWER(p_trigger_direction),
+        p_comment
+    );
 END;
 $$ LANGUAGE plpgsql;
-
 
 
 CREATE OR REPLACE FUNCTION delete_crypto_notification(p_id INT)

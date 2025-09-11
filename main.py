@@ -20,7 +20,7 @@ from control.currencies     import Currencies_api, CurrencyRatesWrapper
 from api_coinmarketcap      import CoinMarketCapApi
 from api_coin_history       import CoinGeckoHistory
 from systems.schedulertimer import generate_schedule, TimerScheduler
-from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim, is_between
+from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim, is_between, multi_number_processing_to_str
 
 
 
@@ -91,7 +91,6 @@ def on_update_users_price():
 def on_check_notifications():
     notifications = _db.get_notifications()
     user = None
-    user_id = None  # храним текущего пользователя
     list_coin = set()
     for notify in notifications:
         list_coin.add(notify.symbol)
@@ -99,16 +98,12 @@ def on_check_notifications():
     coins = _coinApi.get_by_symbols(list_coin)
 
     for coin in coins:
-        price_now = coin.price
-        price_old = coin.previous_price
-
-        if price_old == -1 or price_old is None:
-            continue
 
         for notify in notifications:
             if coin.symbol == notify.symbol:
-                if is_between(notify.price, price_now, price_old, notify.trigger):
-                    # Получаем пользователя, если его ещё нет или он другой
+                p_price_now = _curr_price_api.convert( coin.price, notify.price_code)
+
+                if is_between(notify.price, p_price_now, notify.trigger):
                     if user is None or not user.is_valid() or user.get_user_id() != notify.user_id:
                         user = user_verification_easy(notify.user_id)
 
@@ -117,8 +112,8 @@ def on_check_notifications():
                         notify.user_id,
                         _locale.find_translation(user.get_language(), 'TR_NOTIFY_NOW').format(
                             notify.symbol, 
-                            crypto_trim(price_now),
-                            coin.convert_currency,
+                            multi_number_processing_to_str( _curr_price_api.convert( coin.price, notify.price_code) ),
+                            notify.price_code,
                             notify.coment
                         )
                     )
@@ -162,36 +157,18 @@ def send_welcome(message):
     else:
         zone_str = 'UTC {}'.format(user.get_code_time())
     
-    send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_START_MESSAGE').format(user.get_name(), language, zone_str) )
+    send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_START_MESSAGE').format(user.get_name(), language, zone_str, user.get_currency()) )
 
     balance_user(user.get_user_id(), False)
 
 
 
-@_bot.message_handler(commands=['set_time_zone'])
-def get_time_zone_tg(message):
-    user = user_verification(message)
+# @_bot.message_handler(commands=['set_language'])
+# def get_language_tg(message):
+#     user = user_verification(message)
 
-    if user.is_valid():
-        get_time_zone(user)
-
-
-
-@_bot.message_handler(commands=['set_language'])
-def get_language_tg(message):
-    user = user_verification(message)
-
-    if user.is_valid():
-        get_language(user)
-
-
-@_bot.message_handler(commands=['set_currency'])
-def get_currency_tg(message):
-    user = user_verification(message)
-
-    if user.is_valid():
-        get_currency(user)
-
+#     if user.is_valid():
+#         get_language(user)
 
 
 
@@ -268,6 +245,7 @@ def debug_callback(call):
         _db.set_timezone(user.get_user_id(), time_zone)
         _db.increment_balance_mes(user.get_user_id())
         send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_SUCCESSFUL_TIMEZONE'), id_message_for_edit= message_id)
+        balance_user(user.get_user_id())
 
     elif language_match:
         id = int(language_match.group(1))
@@ -281,6 +259,8 @@ def debug_callback(call):
         else:
             send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_SYSTEM_LANGUAGE_SUPPORT'), id_message_for_edit= message_id)
             _bot.answer_callback_query(call.id, _locale.find_translation(user.get_language(), 'TR_FAILURE'))
+            
+        balance_user(user.get_user_id())
 
     
     elif add_favorit_match:
@@ -300,7 +280,7 @@ def debug_callback(call):
     elif add_notify_match:
         _bot.answer_callback_query(call.id, text = '')
         coin_symbol = add_notify_match.group(1)
-        send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_ADD_NOTIFICATION_MES').format(coin_symbol))
+        send_text(_bot, chat_id, _locale.find_translation(user.get_language(), 'TR_ADD_NOTIFICATION_MES').format(coin_symbol, user.get_currency()))
         _db.update_user_action(chat_id, 'add_notify_' + coin_symbol)
 
     elif set_currencie_match:
@@ -310,6 +290,7 @@ def debug_callback(call):
         _db.set_currency(user.get_user_id(), code_currency)
         _db.increment_balance_mes(user.get_user_id())
         send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_SUCCESSFUL_CURRENCY'), id_message_for_edit= message_id)
+        balance_user(user.get_user_id())
 
     else:
         t_mes = _locale.find_translation(user.get_language(), 'TR_ERROR')
@@ -339,7 +320,7 @@ def handle_user_message(message):
 
 
 def balance_user(userId, automatically_call:bool = True):
-    user = user_verification_easy(userId)
+    user = user_verification_easy(userId) 
 
     # if not user.is_valid():
         # return
@@ -352,8 +333,8 @@ def balance_user(userId, automatically_call:bool = True):
 
     for node in coins:
         s = node.symbol + '   '
-        
-        coins_mes += str( pattern_coin.format( s, node.price_change, crypto_trim( _curr_price_api.convert( node.price, user.get_currency()) ), user.get_currency()) + '\n' )
+        price = multi_number_processing_to_str( _curr_price_api.convert( node.price, user.get_currency()) )
+        coins_mes += str( pattern_coin.format( s, node.price_change, price, user.get_currency()) + '\n' )
 
     favorites = ''
     user_favorit_coins =  user.get_favorit_coins()
@@ -361,7 +342,8 @@ def balance_user(userId, automatically_call:bool = True):
         nodes = _coinApi.get_by_symbols(user_favorit_coins)
 
         for i in nodes:
-            favorites += str( pattern_coin.format( i.symbol.ljust(6)  + '   ', i.price_change, crypto_trim(_curr_price_api.convert( i.price, user.get_currency())), user.get_currency()) + '\n' )
+            price = multi_number_processing_to_str( _curr_price_api.convert( i.price, user.get_currency()) )
+            favorites += str( pattern_coin.format( i.symbol.ljust(6)  + '   ', i.price_change, price, user.get_currency()) + '\n' )
 
     if not favorites:
         favorites = _locale.find_translation(user.get_language(), 'TR_NO_FAVORITES')
@@ -514,15 +496,16 @@ def action_handler(chatId, user:User, action, text):
             else:
                 simvol = ' ↘️'
 
-            
-            notify_mes += str(crypto_trim( _curr_price_api.convert( notify.price, user.get_currency()), 4 )) + simvol + '\n'
+            price = multi_number_processing_to_str( _curr_price_api.convert( notify.price, notify.price_code ),significant_digits=4 )
+            notify_mes += price + ' ' + notify.price_code + ' ' + simvol + '\n'
         
-        if len(notifications) < 0:
-            notify_mes = _locale.find_translation(user.get_language(), 'TR_NOTIFY_IS_NOT_ADD')
+        if len(notifications) <= 0:
+            notify_mes = _locale.find_translation(user.get_language(), 'TR_NOTIFY_IS_NOT_ADD') + '\n'
 
         last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
-        mes = _locale.find_translation(user.get_language(), 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, crypto_trim(_curr_price_api.convert( coin.price, user.get_currency())), user.get_currency(), coin.symbol, notify_mes, last_update_coin )
-        photo_byte = _coinHistoreApi.plot_history( coin.symbol, 7, coin.convert_currency.lower() )
+        price = multi_number_processing_to_str( _curr_price_api.convert( coin.price, user.get_currency()) )
+        mes = _locale.find_translation(user.get_language(), 'TR_COIN_INFO').format( coin.name, coin.symbol, coin.id, price, user.get_currency(), coin.symbol, notify_mes, last_update_coin )
+        photo_byte = _coinHistoreApi.plot_history( coin.symbol, 7, coin.convert_currency.lower(),  _curr_price_api.convert( 1, user.get_currency()), user.get_currency())
         markup = types.InlineKeyboardMarkup()
         have_in_favorit = False
 
@@ -585,8 +568,8 @@ def action_handler(chatId, user:User, action, text):
 
 
         for p, c, t in array:
-            _db.add_notification( user.get_user_id(), coin_symbol, p, t, c)
-        
+            _db.add_notification( user.get_user_id(), coin_symbol, p, user.get_currency(), t, c)
+         
 
         _db.increment_balance_mes(user.get_user_id())
         if len(array) > 0:
