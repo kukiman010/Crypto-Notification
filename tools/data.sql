@@ -340,10 +340,11 @@ $$ LANGUAGE plpgsql;
 
 insert into default_data values ('tariff',                          '1');
 insert into default_data values ('global_payment',                  'True');
-insert into default_data values ('last_activity_autoupdate',        '5');
+insert into default_data values ('last_activity_autoupdate',        '3');
 insert into default_data values ('support_chat',                    '@assistant_gpts_help');
-insert into default_data values ('time_zone',                       '3');
+insert into default_data values ('time_zone',                       'UTC');
 insert into default_data values ('autoupdate_currency',             '4');
+insert into default_data values ('check_premium',                   '13:00');
 
 
 insert into languages values ('Chine',      'zh', True);

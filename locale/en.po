@@ -248,5 +248,11 @@ msgstr "Time settings"
 msgid "TR_MENU_CURENCY"
 msgstr "Currency display settings"
 
+msgid "TR_TARIF_BASE_DESCRIPTION"
+msgstr "The Base plan provides limited access to functionality. The plan includes 10 favorite coins and 30 concurrent notifications.\nThis is the basic plan."
+
+msgid "TR_MESSAGE_SUPPORT"
+msgstr "For all questions, write here: {}"
+
 msgid "TR_"
 msgstr ""

@@ -248,5 +248,11 @@ msgstr "Настройка времени"
 msgid "TR_MENU_CURENCY"
 msgstr "Настройка отображаемой валюты"
 
+msgid "TR_TARIF_BASE_DESCRIPTION"
+msgstr "Тариф Base предоставляет ограниченный доступ к функционалу. В тариф входит 10 монет в избранное и 30 одновременных уведомлений.\nТариф является базовым."
+
+msgid "TR_MESSAGE_SUPPORT"
+msgstr "По всем вопросом писать сюда {}"
+
 msgid "TR_"
 msgstr ""
