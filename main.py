@@ -257,6 +257,7 @@ def debug_callback(call):
         get_currency(user, message_id)
 
     elif key == 'menu_premium':
+        _bot.answer_callback_query(call.id, text = '')
         premium_button(user, message_id)
 
     elif key == 'menu_support':
@@ -265,6 +266,7 @@ def debug_callback(call):
         markup = types.InlineKeyboardMarkup()
         markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_BACK'),                callback_data='menu') )
         send_text(_bot, chat_id, t_mes, reply_markup=markup, id_message_for_edit=message_id)
+        _db.increment_balance_mes(user.get_user_id())
 
     elif timezone_match:
         _bot.answer_callback_query(call.id, text = '')
@@ -502,6 +504,7 @@ def get_currency(user: User, message_id:int = -1):
 
 def premium_button(user: User, id_message_for_edit : int = 0):
     if _env.get_global_payment() :
+        _db.increment_balance_mes(user.get_user_id())
         send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'))
         return 
 
@@ -580,6 +583,7 @@ def premium_button(user: User, id_message_for_edit : int = 0):
     
     t_mes = _locale.find_translation(user.get_language(), 'TR_TARIFFS_MENU').format(text_tarifs)
     send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
+    _db.increment_balance_mes(user.get_user_id())
     if id_message_for_edit != 0:
         _bot.delete_message(user.get_user_id(), id_message_for_edit)
 
