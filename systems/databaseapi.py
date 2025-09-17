@@ -5,6 +5,7 @@ from control.languages  import languages_model
 from control.user       import User
 from control.data_models import AlertCrypto
 from control.currencies import CurrencyModel
+from control.tariffs    import TariffModel
 
 
 class dbApi:
@@ -152,7 +153,26 @@ class dbApi:
         query = "update users set currency_code='{}' where user_id={};".format(code, userId)
         self.db.execute_query(query)
 
+    def get_tariffs(self, tarif_id:int = None) -> list[TariffModel]:
+        if tarif_id == None:
+            query = "SELECT * FROM tariffs;"
+        else:
+            query = "SELECT * FROM tariffs where tariff_id={};".format(tarif_id)
 
+        data = self.db.execute_query(query)
+        array = []
+
+        for i in data:
+            tm = TariffModel(tariff_id=i[0], tariff_name=i[1], activity_day=i[2], price_usd=i[3], price_rub=i[4], price_stars=i[5], description_code=i[6], rules_json=i[7], isView=i[8])
+            array.append(tm)
+
+        return array
+    
+    def get_environment(self):
+        query = "select * from default_data;"
+        data = self.db.execute_query(query)
+        data_dict = {row[0]: row[1] for row in data}
+        return data_dict
 
     def __del__(self):
         self.db.close_pool()

@@ -16,6 +16,10 @@ from control.timezone       import TimeZone_api
 from control.languages      import languages_api
 from control.user           import User
 from control.currencies     import Currencies_api, CurrencyRatesWrapper
+from control.environment    import Environment
+from control.tariffs        import tariffs_api
+
+
 
 from api_coinmarketcap      import CoinMarketCapApi
 from api_coin_history       import CoinGeckoHistory
@@ -28,7 +32,7 @@ from tools.tools            import get_time_string, send_text, get_current_time_
 sys.stdout.reconfigure(encoding='utf-8')
 _logger = LoggerSingleton.new_instance('logs/log_cripto_notify.log')
 _locale = Locale('locale/')
-# _env = Environment()
+_env = Environment()
 _db = dbApi( _setting.get_db_dbname(), _setting.get_db_user(), _setting.get_db_pass(), _setting.get_db_host(), _setting.get_db_port() )
 
 
@@ -37,9 +41,9 @@ _db = dbApi( _setting.get_db_dbname(), _setting.get_db_user(), _setting.get_db_p
 
 # LIMIT = 44640 # лимит 2000/мес
 LIMIT = 10000 # лимит 2000/мес
-TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
-LIMIT_MAX_MES = 3
-AUTOUPDATE_CURRENCY=4 # hour
+# TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
+# LIMIT_MAX_MES = 3
+# AUTOUPDATE_CURRENCY=4 # hour
 
 
 TOKEN_TG = _setting.get_tgToken()
@@ -54,20 +58,20 @@ if TOKEN_COIN_MARKET == '':
     sys.exit()
 
 
-# _env.update( _db.get_environment() )
-# if not _env.is_valid():
-#     _logger.add_critical('Environment is not corrected!')
-#     exit 
+_env.update( _db.get_environment() )
+if not _env.is_valid():
+    _logger.add_critical('Environment is not corrected!')
+    exit 
 
 _coinApi = CoinMarketCapApi( api_key=TOKEN_COIN_MARKET, default_convert="USD", cache_limit=200, verbose=True )
 # _coinApi.force_refresh()
-_coinHistoreApi = CoinGeckoHistory()
-_time_zone_api = TimeZone_api( _db.get_time_zones() )
-_languages_api = languages_api( _db.get_languages() )
+_coinHistoreApi =   CoinGeckoHistory()
+_time_zone_api =    TimeZone_api(           _db.get_time_zones() )
+_languages_api =    languages_api(          _db.get_languages() )
+_tariffs_api =      tariffs_api(            _db.get_tariffs() )
 
-list_curr = _db.get_currencies()
-_curr_api = Currencies_api( list_curr )
-_curr_price_api = CurrencyRatesWrapper( _curr_api.get_list_codes() )
+_curr_api =         Currencies_api(         _db.get_currencies() )
+_curr_price_api =   CurrencyRatesWrapper(   _curr_api.get_list_codes() )
 
 
 
@@ -122,14 +126,11 @@ def on_check_notifications():
                     continue
 
 
-
-
-
 def on_get_price(signal=None):
     if signal != None:
         print("[callback] Signal received:", signal['fired_time'], "since_last:", signal['since_last_seconds'])
 
-    if _curr_price_api.is_updated_more_than(AUTOUPDATE_CURRENCY):
+    if _curr_price_api.is_updated_more_than( _env.get_autoupdate_currency() ):
         _curr_price_api.update_rates( _curr_api.get_list_codes() )
 
     _coinApi.force_refresh()
@@ -191,6 +192,18 @@ def menu(message):
 
 
 
+@_bot.message_handler(commands=['premium'])
+def premium(message):
+    user = user_verification(message)
+    if not user.is_valid():
+        send_text(message.chat.id, _locale.find_translation(user.get_language(), 'TR_ERROR'))
+        return 
+    
+    premium_button(user)
+    _db.update_last_login(user.get_user_id())
+
+
+
 
 @_bot.callback_query_handler(func=lambda call: True)
 def debug_callback(call):
@@ -242,6 +255,16 @@ def debug_callback(call):
     elif key == "menu_currency":
         _bot.answer_callback_query(call.id, text = '')
         get_currency(user, message_id)
+
+    elif key == 'menu_premium':
+        premium_button(user, message_id)
+
+    elif key == 'menu_support':
+        _bot.answer_callback_query(call.id, text = '')
+        t_mes = _locale.find_translation(user.get_language(), 'TR_MESSAGE_SUPPORT').format( _env.get_support_chat() )
+        markup = types.InlineKeyboardMarkup()
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_BACK'),                callback_data='menu') )
+        send_text(_bot, chat_id, t_mes, reply_markup=markup, id_message_for_edit=message_id)
 
     elif timezone_match:
         _bot.answer_callback_query(call.id, text = '')
@@ -356,7 +379,8 @@ def balance_user(userId, automatically_call:bool = True):
 
     isNew = False
 
-    if user.get_count_post_balance_mes() > LIMIT_MAX_MES :
+    if user.get_count_post_balance_mes() >= _env.get_last_activity_autoupdate() :
+    # if user.get_count_post_balance_mes() >= LIMIT_MAX_MES :
         isNew = True
     elif user.get_last_balance_mes_id() == 0:
         isNew = True
@@ -476,6 +500,91 @@ def get_currency(user: User, message_id:int = -1):
 
 
 
+def premium_button(user: User, id_message_for_edit : int = 0):
+    if _env.get_global_payment() :
+        send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'))
+        return 
+
+
+    # if user.get_status() == 0: 
+    #     if id_message_for_edit != 0:
+    #         markup = types.InlineKeyboardMarkup()
+    #         markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
+    #         send_text(user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_LOCK_FOR_BANED_USER'), reply_markup=markup)
+    #     else:
+    #         send_text(user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_LOCK_FOR_BANED_USER'))
+    #     return
+
+    tarifs = _db.get_tariffs()
+    rub_countries = {
+        'RU',  # Россия
+        'UZ',  # Узбекистан
+        'TJ',  # Таджикистан
+        'KG',  # Кыргызстан
+        'AM',  # Армения
+        'AZ',  # Азербайджан
+        'KZ',  # Казахстан
+        'UA',  # Украина
+        'BY',  # Беларусь
+        'MD',  # Молдова
+    }
+
+    if user.get_language().upper() in rub_countries:
+        main_currency = 'RUB'
+    else:
+        main_currency = 'USD'
+    
+    text_tarifs = ''
+
+    t_all = _locale.find_translation(user.get_language(), 'TR_TARIF_ALL')
+    for node in tarifs:
+        if node.tariff_name != None:
+            
+            if node.price_rub <= 0 and node.price_usd <= 0 and node.price_stars <= 0:
+                continue
+            
+            config_tarif = ''
+
+            for key, value in node.rules_json.items():
+                if value == "all":
+                    config_tarif += key + ': ' + t_all + '\n'
+                elif isinstance(value, list):
+                    config_tarif += key + ': ' + value + '\n'
+
+
+            if node.price_usd  <= 0 and node.price_rub <= 0 and node.price_stars<= 0: # free
+                print()
+                # node.price_usd = _payMan.convector.custom_round(node.price_rub / _payMan.convector.usd_to_rub(1))
+
+
+
+            main_price = ''
+            if main_currency == 'RUB':
+                main_price = str(node.price_rub) + '₽'
+            else:
+                main_price = str(node.price_usd) + '$'
+
+            if config_tarif:
+                text_tarifs += _locale.find_translation(user.get_language(), 'TR_TARIF_PATERN').format(node.tariff_name, config_tarif, main_price, str(node.price_stars) + '⭐️', node.activity_day) + '\n'
+            else:
+                text_tarifs += _locale.find_translation(user.get_language(), 'TR_TARIF_PATERN_EMPTY').format(node.tariff_name, main_price, str(node.price_stars) + '⭐️', node.activity_day) + '\n'
+
+
+    buttons = _tariffs_api.available_by_status()
+    markup = types.InlineKeyboardMarkup()
+    for key, value in buttons.items():
+        markup.add(types.InlineKeyboardButton(value, callback_data=key))
+
+    if id_message_for_edit != 0:
+        markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
+    
+    t_mes = _locale.find_translation(user.get_language(), 'TR_TARIFFS_MENU').format(text_tarifs)
+    send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
+    if id_message_for_edit != 0:
+        _bot.delete_message(user.get_user_id(), id_message_for_edit)
+
+
+
 
 def action_handler(chatId, user:User, action, text):
 
@@ -583,10 +692,8 @@ def action_handler(chatId, user:User, action, text):
             send_text(_bot, chatId, _locale.find_translation(user.get_language(), 'TR_NOTIFICATION_ADD_NOT'))
 
         return
-                
-        
 
-        
+
 
 
     else:
@@ -603,12 +710,10 @@ def main_menu(user: User, charId, id_message = None):
 
     markup = types.InlineKeyboardMarkup()
     markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_LANGUAGE'),    callback_data='menu_language') )
-    
     markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_TIMEZONE_NAME'),    callback_data='menu_time_zone') )
     markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_CURENCY'),     callback_data='menu_currency') )
-
-    # markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_PREMIUM'),     callback_data='menu_premium') )
-    # markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_SUPPORT'),     callback_data='menu_support') )
+    markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_PREMIUM'),     callback_data='menu_premium') )
+    markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU_SUPPORT'),     callback_data='menu_support') )
 
 
     _db.increment_balance_mes(user.get_user_id())
@@ -621,14 +726,14 @@ def main_menu(user: User, charId, id_message = None):
 if __name__ == "__main__":
     _coinApi.parse_cmc_api_limits( _coinApi.get_cmc_api_limits() )
 
-    sched = generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out=TZ)
+    sched = generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out= _env.get_time_zone() )
     times = sched['daily_times_flat']
     window_indices = sched['daily_times_window_index']
 
     print("Daily requests:", sched['daily_requests'], "monthly_used:", sched['monthly_used'], "residual:", sched['residual_monthly'])
     print("Times today sample (first 10):", times[:10])
 
-    scheduler = TimerScheduler(daily_times=times, daily_window_indices=window_indices, callback=on_get_price, tz_out=TZ, name="MyScheduler")
+    scheduler = TimerScheduler(daily_times=times, daily_window_indices=window_indices, callback=on_get_price, tz_out=_env.get_time_zone(), name="MyScheduler")
     scheduler.start(daemon=True)
 
     on_get_price(None)

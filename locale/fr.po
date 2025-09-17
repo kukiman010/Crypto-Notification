@@ -248,5 +248,11 @@ msgstr "Réglage de l'heure"
 msgid "TR_MENU_CURENCY"
 msgstr "Réglage de la devise affichée"
 
+msgid "TR_TARIF_BASE_DESCRIPTION"
+msgstr "Le forfait Base offre un accès limité aux fonctionnalités. Il comprend 10 pièces favorites et 30 notifications simultanées.\nC'est le forfait de base."
+
+msgid "TR_MESSAGE_SUPPORT"
+msgstr "Pour toute question, écrivez ici : {}"
+
 msgid "TR_"
 msgstr ""

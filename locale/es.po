@@ -248,5 +248,11 @@ msgstr "Configuración de la hora"
 msgid "TR_MENU_CURENCY"
 msgstr "Configuración de la moneda mostrada"
 
+msgid "TR_TARIF_BASE_DESCRIPTION"
+msgstr "La tarifa Base proporciona acceso limitado a las funciones. El plan incluye 10 monedas favoritas y 30 notificaciones simultáneas.\nEs la tarifa básica."
+
+msgid "TR_MESSAGE_SUPPORT"
+msgstr "Para cualquier consulta, escribe aquí: {}"
+
 msgid "TR_"
 msgstr ""

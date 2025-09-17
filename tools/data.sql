@@ -57,13 +57,17 @@ CREATE TABLE  currencies (
 );
 
 
--- create table premium
--- (
---     prem_id
---     usd
---     rub
---     stars
--- );
+CREATE TABLE tariffs(
+    tariff_id           INT UNIQUE NOT NULL,
+    tariff_name         TEXT,
+    activity_day        INT,
+    price_usd           FLOAT NOT NULL,
+    price_rub           FLOAT NOT NULL,
+    price_stars         FLOAT NOT NULL,
+    description_code    TEXT,
+    rules_json          jsonb,
+    isView              BOOLEAN DEFAULT TRUE
+);
 
 
 
@@ -336,10 +340,11 @@ $$ LANGUAGE plpgsql;
 
 insert into default_data values ('tariff',                          '1');
 insert into default_data values ('global_payment',                  'True');
-insert into default_data values ('last_activity_autoupdate',        '5');
+insert into default_data values ('last_activity_autoupdate',        '3');
 insert into default_data values ('support_chat',                    '@assistant_gpts_help');
-insert into default_data values ('time_zone',                       '3');
+insert into default_data values ('time_zone',                       'UTC');
 insert into default_data values ('autoupdate_currency',             '4');
+insert into default_data values ('check_premium',                   '13:00');
 
 
 insert into languages values ('Chine',      'zh', True);
@@ -380,3 +385,7 @@ insert into currencies values ('Dollar ($)','USD',          True);
 insert into currencies values ('Euro (€)',  'EUR',          True);
 insert into currencies values ('Рубль (₽)', 'RUB',          True);
 insert into currencies values ('Yuán (¥)',  'CNY',          True);
+
+
+insert into tariffs values (1, 'Base',  -1, -1, -1, -1,  'TR_TARIF_BASE_DESCRIPTION', '{  "notifications": 30,  "favorit_coins": 10}', FALSE);
+insert into tariffs values (2, 'Plus',  30, 2, 120, 99,  'TR_TARIF_ONE_DESCRIPTION',  '{  "notifications": -1,  "favorit_coins": -1}', TRUE);
