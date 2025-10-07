@@ -345,6 +345,7 @@ insert into default_data values ('support_chat',                    '@assistant_
 insert into default_data values ('time_zone',                       'UTC');
 insert into default_data values ('autoupdate_currency',             '4');
 insert into default_data values ('check_premium',                   '13:00');
+insert into default_data values ('rule_cionMarket',                 '{ "top": 44640, "other": 44640, "history": 10000 }');
 
 
 insert into languages values ('Chine',      'zh', True);
@@ -387,5 +388,5 @@ insert into currencies values ('Рубль (₽)', 'RUB',          True);
 insert into currencies values ('Yuán (¥)',  'CNY',          True);
 
 
-insert into tariffs values (1, 'Base',  -1, -1, -1, -1,  'TR_TARIF_BASE_DESCRIPTION', '{  "notifications": 30,  "favorit_coins": 10}', FALSE);
-insert into tariffs values (2, 'Plus',  30, 2, 120, 99,  'TR_TARIF_ONE_DESCRIPTION',  '{  "notifications": -1,  "favorit_coins": -1}', TRUE);
+insert into tariffs values (1, 'Base',  -1, -1, -1, -1,  'TR_TARIF_BASE_DESCRIPTION', '{ "notifications": 30, "favorit_coins": 10 }', FALSE);
+insert into tariffs values (2, 'Plus',  30, 2, 120, 99,  'TR_TARIF_ONE_DESCRIPTION',  '{ "notifications": -1, "favorit_coins": -1 }', TRUE);

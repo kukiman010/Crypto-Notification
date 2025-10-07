@@ -47,13 +47,13 @@ LIMIT = 10000 # лимит 2000/мес
 
 
 TOKEN_TG = _setting.get_tgToken()
-TOKEN_COIN_MARKET = _setting.get_coinMarketCapToken()
+TOKENS_COIN_MARKET = _setting.get_coinMarketCapToken()
 
 if TOKEN_TG == '':
     _logger.add_critical('No tg token!')
     sys.exit()
 
-if TOKEN_COIN_MARKET == '':
+if TOKENS_COIN_MARKET == '':
     _logger.add_critical('No coinMarketCap token!')
     sys.exit()
 
@@ -63,7 +63,7 @@ if not _env.is_valid():
     _logger.add_critical('Environment is not corrected!')
     exit 
 
-_coinApi = CoinMarketCapApi( api_key=TOKEN_COIN_MARKET, default_convert="USD", cache_limit=200, verbose=True )
+_coinApi = CoinMarketCapApi( api_keys=TOKENS_COIN_MARKET, default_convert="USD", cache_limit=200, verbose=True )
 # _coinApi.force_refresh()
 _coinHistoreApi =   CoinGeckoHistory()
 _time_zone_api =    TimeZone_api(           _db.get_time_zones() )
@@ -504,8 +504,13 @@ def get_currency(user: User, message_id:int = -1):
 
 def premium_button(user: User, id_message_for_edit : int = 0):
     if _env.get_global_payment() :
-        _db.increment_balance_mes(user.get_user_id())
-        send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'))
+        if id_message_for_edit <= 0:
+            markup = types.InlineKeyboardMarkup()
+            markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
+            send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'), reply_markup=markup)
+        else: 
+            _db.increment_balance_mes(user.get_user_id())
+            send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'))
         return 
 
 
@@ -728,7 +733,7 @@ def main_menu(user: User, charId, id_message = None):
 
 
 if __name__ == "__main__":
-    _coinApi.parse_cmc_api_limits( _coinApi.get_cmc_api_limits() )
+    # data2 = _coinApi.get_accaunt_info(TOKEN_COIN_MARKET)
 
     sched = generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out= _env.get_time_zone() )
     times = sched['daily_times_flat']

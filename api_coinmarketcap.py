@@ -2,10 +2,11 @@
 import os
 import time
 import threading
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any, Iterable, Union
-from control.data_models import CryptoBrief
-from tools.tools import get_simvol
+from dataclasses            import dataclass
+from typing                 import Dict, List, Optional, Tuple, Any, Iterable, Union
+from control.data_models    import CryptoBrief
+from tools.tools            import get_simvol
+from control.data_models    import InfoAccautCoinMarket
 
 import requests
 
@@ -20,7 +21,7 @@ class CoinMarketCapApi:
       - get_by_symbol(): быстрый доступ к монете из кеша
       - get_all_cached(): получить снимок кеша
       - force_refresh(): синхронно обновить кеш по запросу
-      - get_cmc_api_limits() / parse_cmc_api_limits(): лимиты ключа
+      - get_accaunt_info():  лимиты ключа
 
     Безопасность и производительность:
       - Никаких фоновых потоков и автообновлений
@@ -196,7 +197,8 @@ class CoinMarketCapApi:
                 }
         return result
 
-    def get_cmc_api_limits(self) -> Dict[str, Any]:
+
+    def get_accaunt_info(self, key) -> InfoAccautCoinMarket:
         """Сырые лимиты ключа с /key/info."""
         url = self.API_BASE + self.ENDPOINT_KEY_INFO
         headers = {
@@ -205,64 +207,40 @@ class CoinMarketCapApi:
         }
         response = self._session.get(url, headers=headers, timeout=self.request_timeout)
         if response.status_code == 200:
-            return response.json()
+            json = response.json()
+            status = json.get("status", {})
+            data = json.get("data", {})
+
+            # Вытаскиваем основные значения из plan
+            plan = data.get("plan", {})
+            usage = data.get("usage", {})
+
+            credit_limit_monthly = int(plan.get("credit_limit_monthly", 0))
+            credit_limit_monthly_reset = plan.get("credit_limit_monthly_reset", "")
+            credit_limit_monthly_reset_timestamp = plan.get("credit_limit_monthly_reset_timestamp", "")
+            rate_limit_minute = int(plan.get("rate_limit_minute", 0))
+
+            usage_current_month = usage.get("current_month", {})
+            credits_used = int(usage_current_month.get("credits_used", 0))
+            credits_left = int(usage_current_month.get("credits_left", credit_limit_monthly - credits_used))
+
+            error_code = int(status.get("error_code", 0))
+            error_message = str(status.get("error_message") or "")
+
+            return InfoAccautCoinMarket(
+                credit_limit_monthly=credit_limit_monthly,
+                credits_left=credits_left,
+                credits_used=credits_used,
+                credit_limit_monthly_reset_timestamp=credit_limit_monthly_reset_timestamp,
+                credit_limit_monthly_reset=credit_limit_monthly_reset,
+                rate_limit_minute=rate_limit_minute,
+                error_code=error_code,
+                error_message=error_message,
+            )
         else:
             raise RuntimeError(f"Ошибка запроса: {response.status_code} - {response.text}")
 
-    @staticmethod
-    def parse_cmc_api_limits(response_json: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Нормализованный разбор структуры /key/info.
-        Возвращает поля: is_working, limit, error_code, error_message, reset_time, extra_info
-        """
-        status = response_json.get("status", {})
-        is_working = (status.get("error_code", 1) == 0)
-        error_code = status.get("error_code")
-        error_message = status.get("error_message")
 
-        limit_data = None
-        reset_time = None
-        extra_info: Dict[str, Any] = {}
-
-        if "plan" in response_json:
-            plan = response_json["plan"]
-            limit_data = {
-                "monthly": plan.get("credit_limit_monthly"),
-                "minute": plan.get("rate_limit_minute"),
-            }
-            reset_time = plan.get("credit_limit_monthly_reset")
-        elif "data" in response_json:
-            plan = (response_json["data"] or {}).get("plan", {})
-            limit_data = {
-                "monthly": plan.get("credit_limit_monthly"),
-                "minute": plan.get("rate_limit_minute"),
-            }
-            reset_time = plan.get("credit_limit_monthly_reset")
-
-        usage = None
-        if "usage" in response_json:
-            usage = response_json.get("usage", {})
-        elif "data" in response_json:
-            usage = (response_json["data"] or {}).get("usage", {})
-
-        if usage:
-            try:
-                minute_used = (usage.get("current_minute") or {}).get("credit_used")
-                month_used = (usage.get("current_month") or {}).get("credit_used")
-                month_left = (limit_data["monthly"] - month_used) if (limit_data and limit_data.get("monthly") and month_used is not None) else None
-                extra_info["credit_used_minute"] = minute_used
-                extra_info["credit_left_month"] = month_left
-            except Exception:
-                pass
-
-        return {
-            "is_working": is_working,
-            "limit": limit_data,
-            "error_code": error_code,
-            "error_message": error_message,
-            "reset_time": reset_time,
-            "extra_info": extra_info,
-        }
 
     def force_refresh(self, *, convert: Optional[str] = None) -> None:
         """

@@ -113,3 +113,13 @@ class AlertCrypto:
 
 
 
+@dataclass(frozen=True)
+class InfoAccautCoinMarket:
+    credit_limit_monthly: int                   # 10000
+    credits_left: int                           # 9271
+    credits_used: int                           # 729
+    credit_limit_monthly_reset_timestamp:str    # "2025-11-01T00:00:00.000Z"
+    credit_limit_monthly_reset:datetime         # "In 28 days, 11 hours, 52 minutes"
+    rate_limit_minute: int                      # 30
+    error_code: int
+    error_message:str
