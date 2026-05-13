@@ -4,10 +4,16 @@ scheduler_timer.py
 Готовый модуль:
 - generate_schedule(limit_per_month, days_in_month=31, weights=None, tz_out='UTC', use_all_budget=False)
     -> возвращает расписание на день (список времён) и метрики.
+    limit_per_month может быть суммарным бюджетом по нескольким ключам (см. докстринг функции).
 
 - TimerScheduler(daily_times, callback=None, tz_out='UTC', name=None)
     -> запускает планировщик в отдельном потоке, по срабатыванию кладёт "сигнал" в signal_queue
        и опционально вызывает callback(signal_dict).
+
+- IntervalTimerScheduler(interval_seconds=30, callback=None, tz_out='UTC', name=None)
+    -> фиксированный интервал по сетке суток в tz_out (секунды от полуночи % interval_seconds);
+       подходит для «каждые 30 с» независимо от длительности callback. Сигнал как у TimerScheduler;
+       window_index / window_range = None.
 
 Сигнал (dict), который помещается в signal_queue и передаётся callback:
 {
@@ -55,6 +61,11 @@ def generate_schedule(limit_per_month: int,
                       use_all_budget: bool = False) -> Dict:
     """
     Возвращает словарь с расписанием и метриками.
+
+    limit_per_month может быть агрегированным месячным бюджетом по нескольким API-ключам
+    (например, сумма credit_limit_monthly по пулу ключей для фоновых запросов). Тогда
+    среднее число срабатываний в минуту за день ≈ limit_per_month / days_in_month / 1440.
+
     - use_all_budget=False (по умолчанию) — берем floor(limit/days)*days, не тратим остаток.
     - use_all_budget=True — постараемся распределить residual по дням (равномерно).
     Результат:
@@ -270,4 +281,100 @@ class TimerScheduler:
             self._thread.join(timeout=timeout)
 
 
+class IntervalTimerScheduler:
+    """
+    Планировщик с фиксированным интервалом между стартами callback.
+    Ожидание до ближайшей отметки сетки period в текущих сутках (tz_out), чтобы
+    при длительном callback следующий тик всё равно приходился через ~interval_seconds по часам.
+    """
+
+    def __init__(
+        self,
+        interval_seconds: float = 30.0,
+        *,
+        callback=None,
+        tz_out: str = "UTC",
+        name: Optional[str] = None,
+    ):
+        if interval_seconds <= 0:
+            raise ValueError("interval_seconds must be positive")
+        self.interval_seconds = float(interval_seconds)
+        self.callback = callback
+        self.tz_out = tz_out
+        self.name = name or f"IntervalTimerScheduler-{id(self) % 10000}"
+        self._stop_event = threading.Event()
+        self._thread = None
+        self.signal_queue: Queue = Queue()
+        self._last_fired_time: Optional[datetime] = None
+
+    def _run_loop(self) -> None:
+        tz = ZoneInfo(self.tz_out) if self.tz_out != "UTC" else timezone.utc
+        period = max(self.interval_seconds, 0.001)
+        while not self._stop_event.is_set():
+            now = datetime.now(tz)
+            sod = (
+                now.hour * 3600
+                + now.minute * 60
+                + now.second
+                + now.microsecond / 1e6
+            )
+            into = sod % period
+            wait_sec = period - into
+            if wait_sec < 1e-3:
+                wait_sec += period
+
+            deadline = time_module.monotonic() + wait_sec
+            while not self._stop_event.is_set():
+                rem = deadline - time_module.monotonic()
+                if rem <= 0:
+                    break
+                time_module.sleep(min(1.0, rem))
+            if self._stop_event.is_set():
+                break
+
+            fired = datetime.now(tz)
+            fired_utc = fired.astimezone(timezone.utc)
+            since_last = None
+            if self._last_fired_time is not None:
+                since_last = (fired - self._last_fired_time).total_seconds()
+            self._last_fired_time = fired
+
+            signal = {
+                "scheduled_time": fired.isoformat(),
+                "fired_time": fired.isoformat(),
+                "since_last_seconds": since_last,
+                "window_index": None,
+                "window_range": None,
+                "utc_fired": fired_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "interval_seconds": self.interval_seconds,
+            }
+            try:
+                self.signal_queue.put_nowait(signal)
+            except Exception:
+                pass
+            if self.callback:
+                try:
+                    self.callback(signal)
+                except Exception as e:
+                    print(f"[{self.name}] Callback exception:", e)
+            time_module.sleep(0.05)
+
+    def start(self, daemon: bool = True) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run_loop, name=self.name, daemon=daemon)
+        self._thread.start()
+
+    def stop(self, wait: bool = False, timeout: Optional[float] = None) -> None:
+        self._stop_event.set()
+        if wait and self._thread:
+            self._thread.join(timeout=timeout)
+
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def join(self, timeout: Optional[float] = None) -> None:
+        if self._thread:
+            self._thread.join(timeout=timeout)
 

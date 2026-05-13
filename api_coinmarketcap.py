@@ -2,11 +2,11 @@
 import os
 import time
 import threading
-from dataclasses            import dataclass
 from typing                 import Dict, List, Optional, Tuple, Any, Iterable, Union
 from control.data_models    import CryptoBrief
 from tools.tools            import get_simvol
 from control.data_models    import InfoAccautCoinMarket
+from systems.configure      import parse_coinmarketcap_key_text
 
 import requests
 
@@ -38,10 +38,9 @@ class CoinMarketCapApi:
         self,
         api_key: Optional[str] = None,
         *,
+        key_entries: Optional[List[Tuple[str, bool]]] = None,
         default_convert: str = "USD",
-        # refresh_interval: int = 60,      # параметр сохранён для обратной совместимости, не используется
         cache_limit: int = 999999,
-        # stale_ttl: int = 180,            # параметр сохранён для обратной совместимости, не используется
         request_timeout: int = 10,
         session: Optional[requests.Session] = None,
         read_api_key_from: Optional[str] = "./configs/coinmarketcap.key",
@@ -50,15 +49,13 @@ class CoinMarketCapApi:
         verbose: bool = False,
     ):
         """
-        :param api_key: Ключ CMC; если не указан — возьмём из окружения
-                        COINMARKETCAP_API_KEY или из файла read_api_key_from.
+        :param api_key: Один ключ CMC (legacy), если не заданы key_entries и файл.
+        :param key_entries: Список (ключ, is_detail): true — топ/поиск, false — фоновые листинги и quotes.
         :param default_convert: Валюта конвертации для листинга (USD по умолчанию).
-        :param refresh_interval: (не используется, сохранён для обратной совместимости)
         :param cache_limit: Сколько монет запрашивать и держать в кеше (макс. листинга)
-        :param stale_ttl: (не используется, сохранён для обратной совместимости)
         :param request_timeout: Таймаут HTTP-запросов (сек.)
         :param session: Опционально передайте свой requests.Session
-        :param read_api_key_from: Путь к файлу с ключом, если не задан api_key/env
+        :param read_api_key_from: Путь к файлу с ключами, если не заданы key_entries/api_key/env
         :param sort: Поле сортировки листинга (market_cap, volume_24h, price и т.п.)
         :param sort_dir: Направление сортировки ('desc' | 'asc')
         :param verbose: Печатать лог-сообщения
@@ -66,17 +63,37 @@ class CoinMarketCapApi:
         self.verbose = verbose
 
         env_key = os.environ.get("COINMARKETCAP_API_KEY")
-        file_key = None
-        if not api_key and not env_key and read_api_key_from and os.path.exists(read_api_key_from):
+        entries = key_entries
+        if not entries and read_api_key_from and os.path.exists(read_api_key_from):
             try:
                 with open(read_api_key_from, "r", encoding="utf-8") as f:
-                    file_key = f.read().strip()
+                    entries = parse_coinmarketcap_key_text(f.read())
             except Exception:
-                                file_key = None
+                entries = None
 
-        self.api_key = api_key or env_key or file_key
-        if not self.api_key:
+        if not entries:
+            single = api_key or env_key
+            if single:
+                entries = [(single, False)]
+            else:
+                entries = []
+
+        if not entries:
             raise RuntimeError("Не найден COINMARKETCAP_API_KEY")
+
+        keys_detail = [k for k, is_d in entries if is_d]
+        keys_refresh = [k for k, is_d in entries if not is_d]
+        if not keys_refresh:
+            keys_refresh = list(keys_detail)
+        if not keys_detail:
+            keys_detail = list(keys_refresh)
+
+        self._keys_detail = keys_detail
+        self._keys_refresh = keys_refresh
+        self.api_key = keys_refresh[0]
+        self._key_rr_lock = threading.Lock()
+        self._idx_detail = 0
+        self._idx_refresh = 0
 
         self.default_convert = default_convert
         self.cache_limit = max(1, int(cache_limit))
@@ -94,6 +111,25 @@ class CoinMarketCapApi:
 
         # Простой контроль ошибок/бэкофф (используется только внутри запроса)
         self._backoff_sec = 0
+
+    @staticmethod
+    def _headers(api_key: str) -> Dict[str, str]:
+        return {
+            "Accepts": "application/json",
+            "X-CMC_PRO_API_KEY": api_key,
+        }
+
+    def _next_refresh_key(self) -> str:
+        with self._key_rr_lock:
+            i = self._idx_refresh
+            self._idx_refresh = (self._idx_refresh + 1) % len(self._keys_refresh)
+            return self._keys_refresh[i]
+
+    def _next_detail_key(self) -> str:
+        with self._key_rr_lock:
+            i = self._idx_detail
+            self._idx_detail = (self._idx_detail + 1) % len(self._keys_detail)
+            return self._keys_detail[i]
 
     # ------------------------- Публичный API -------------------------
 
@@ -169,10 +205,7 @@ class CoinMarketCapApi:
         if not symbols:
             return {}
 
-        headers = {
-            "Accepts": "application/json",
-            "X-CMC_PRO_API_KEY": self.api_key
-        }
+        headers = self._headers(self._next_detail_key())
         params = {
             "symbol": ",".join(symbols),
             "convert": convert,
@@ -198,13 +231,11 @@ class CoinMarketCapApi:
         return result
 
 
-    def get_accaunt_info(self, key) -> InfoAccautCoinMarket:
-        """Сырые лимиты ключа с /key/info."""
+    def get_accaunt_info(self, key: Optional[str] = None) -> InfoAccautCoinMarket:
+        """Сырые лимиты ключа с /key/info. Если key не передан — первый ключ пула обновлений."""
+        use_key = key or self.api_key
         url = self.API_BASE + self.ENDPOINT_KEY_INFO
-        headers = {
-            "X-CMC_PRO_API_KEY": self.api_key,
-            "Accepts": "application/json"
-        }
+        headers = self._headers(use_key)
         response = self._session.get(url, headers=headers, timeout=self.request_timeout)
         if response.status_code == 200:
             json = response.json()
@@ -245,21 +276,23 @@ class CoinMarketCapApi:
     def force_refresh(self, *, convert: Optional[str] = None) -> None:
         """
         Синхронно обновить кеш по запросу. Никаких фоновых событий.
+        Использует пул ключей для фоновых запросов (false).
         """
-        self._refresh_once_blocking(convert=convert or self.default_convert)
+        self._refresh_once_blocking(convert=convert or self.default_convert, for_refresh=True)
 
     # ------------------------- Внутреннее -------------------------
 
-    def _refresh_once_blocking(self, *, convert: str) -> None:
+    def _refresh_once_blocking(self, *, convert: str, for_refresh: bool = False) -> None:
         """Первичная загрузка/ручное обновление — блокирующее."""
         try:
-            self._refresh_once(convert=convert)
+            self._refresh_once(convert=convert, for_refresh=for_refresh)
         except Exception as e:
             raise RuntimeError(f"Не удалось получить листинг: {e}") from e
 
-    def _refresh_once(self, *, convert: str) -> None:
+    def _refresh_once(self, *, convert: str, for_refresh: bool) -> None:
         """
         Разовая загрузка листинга с CMC и установка кеша.
+        for_refresh=True — ключи пула обновлений (ротация); иначе пул детализации/топа.
         """
         params = {
             "start": "1",
@@ -268,28 +301,46 @@ class CoinMarketCapApi:
             "sort": self.sort,
             "sort_dir": self.sort_dir,
         }
-        headers = {
-            "Accepts": "application/json",
-            "X-CMC_PRO_API_KEY": self.api_key,
-        }
         url = self.API_BASE + self.ENDPOINT_LISTINGS
+        pool_n = len(self._keys_refresh) if for_refresh else len(self._keys_detail)
+        attempts = max(1, min(pool_n, 5))
+        last_exc: Optional[Exception] = None
+        resp = None
+        payload: Optional[Dict[str, Any]] = None
+        for attempt in range(attempts):
+            api_key = self._next_refresh_key() if for_refresh else self._next_detail_key()
+            headers = self._headers(api_key)
+            if self.verbose and attempt == 0:
+                pool = "refresh" if for_refresh else "detail"
+                print(f"[CMC] listings/{pool} key …{api_key[-6:]}")
 
-        # Обработка rate-limit
-        resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
-        if resp.status_code == 429:
-            retry_after = resp.headers.get("Retry-After")
-            delay = int(retry_after) if retry_after and retry_after.isdigit() else max(5, self._backoff_sec or 10)
-            if self.verbose:
-                print(f"[CMC] rate-limited, sleep {delay}s")
-            time.sleep(delay)
             resp = self._session.get(url, headers=headers, params=params, timeout=self.request_timeout)
+            if resp.status_code == 429:
+                retry_after = resp.headers.get("Retry-After")
+                delay = int(retry_after) if retry_after and retry_after.isdigit() else max(5, self._backoff_sec or 10)
+                if self.verbose:
+                    print(f"[CMC] rate-limited (listings), sleep {delay}s, attempt next key")
+                time.sleep(delay)
+                last_exc = RuntimeError("HTTP 429 listings")
+                continue
+            try:
+                resp.raise_for_status()
+            except Exception as e:
+                last_exc = e
+                continue
+            payload = resp.json()
+            status = payload.get("status", {})
+            if status.get("error_code", 0) != 0:
+                last_exc = RuntimeError(f"API error: {status.get('error_message')}")
+                continue
+            break
+        else:
+            if last_exc:
+                raise last_exc
+            raise RuntimeError("Не удалось получить листинг")
 
-        resp.raise_for_status()
-        payload = resp.json()
-        status = payload.get("status", {})
-        if status.get("error_code", 0) != 0:
-            raise RuntimeError(f"API error: {status.get('error_message')}")
-
+        if payload is None:
+            raise RuntimeError("Не удалось получить листинг")
         all_cryptos = payload.get("data") or []
         convert_upper = convert.upper()
 
@@ -324,7 +375,6 @@ class CoinMarketCapApi:
                     previous_price=prev,
                 )
             )
-            # Установка нового кеша — под локом, атомарно
 
         with self._lock:
             new_tuple = tuple(new_list)
@@ -332,9 +382,6 @@ class CoinMarketCapApi:
             self._cache_data = new_tuple
             self._index_by_symbol = new_index
             self._last_update_ts = time.time()
-
-        # if self.verbose:
-            # print(f"[CMC] cache refreshed: {len(new_list)} assets @ {convert_upper}")
 
     @staticmethod
     def _brief_to_dict(cb: CryptoBrief) -> Dict[str, Any]:
@@ -388,10 +435,7 @@ class CoinMarketCapApi:
                 else:
                     # Дозапрос quotes/latest по id в нужной валюте кеша
                     url_quotes = self.API_BASE + self.ENDPOINT_QUOTES
-                    headers = {
-                        "Accepts": "application/json",
-                        "X-CMC_PRO_API_KEY": self.api_key,
-                    }
+                    headers = self._headers(self._next_detail_key())
                     params_cache = {"id": symbol_data["id"], "convert": default_upper}
                     resp_cache = self._session.get(url_quotes, headers=headers, params=params_cache, timeout=self.request_timeout)
                     resp_cache.raise_for_status()
@@ -459,10 +503,7 @@ class CoinMarketCapApi:
             # 3) запросы к API (quotes/latest, затем map -> id при необходимости)
             try:
                 url = self.API_BASE + self.ENDPOINT_QUOTES
-                headers = {
-                    "Accepts": "application/json",
-                    "X-CMC_PRO_API_KEY": self.api_key,
-                }
+                headers = self._headers(self._next_detail_key())
                 convert_upper = (convert or self.default_convert).upper()
 
                 # Попытка по символу
@@ -569,7 +610,7 @@ class CoinMarketCapApi:
 
         # 2) Инициализация кеша при необходимости
         if not self._cache_data:
-            self._refresh_once_blocking(convert=self.default_convert)
+            self._refresh_once_blocking(convert=self.default_convert, for_refresh=True)
 
         convert_upper = self.default_convert.upper()
         if convert and convert.strip().upper() != convert_upper and self.verbose:
@@ -607,10 +648,7 @@ class CoinMarketCapApi:
         found_now_symbols: set[str] = set()
 
         if probable_symbols:
-            headers = {
-                "Accepts": "application/json",
-                "X-CMC_PRO_API_KEY": self.api_key,
-            }
+            headers = self._headers(self._next_refresh_key())
             params = {
                 "symbol": ",".join(probable_symbols),
                 "convert": convert_upper,
@@ -690,7 +728,7 @@ class CoinMarketCapApi:
             if prev is None:
                 prev = -1
 
-            change = get_simvol(prev, price)
+            change = get_simvol(prev, float(cb.price))
 
             # Гарантируем, что валюта совпадает с кешевой (мы вызывали find_coin с self.default_convert)
             new_items[cb.symbol] = CryptoBrief(
@@ -701,6 +739,7 @@ class CoinMarketCapApi:
                 convert_currency=convert_upper,
                 last_updated=cb.last_updated or "",
                 price_change=change,
+                previous_price=prev,
             )
             got_keys_upper.add(cb.symbol.upper())
 
