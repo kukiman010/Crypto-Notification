@@ -1,8 +1,13 @@
 import threading
 import requests
 import telebot
+import telebot.apihelper as _tg_apihelper
 import sys
 import re
+
+# Дольше ждём TCP/HTTPS до api.telegram.org (дефолт pyTelegramBotAPI connect=15 c).
+_tg_apihelper.CONNECT_TIMEOUT = 60
+_tg_apihelper.READ_TIMEOUT = 120
 
 from telebot                import types
 
@@ -21,12 +26,13 @@ from control.tariffs        import tariffs_api
 
 
 
+from calendar import monthrange
+from datetime import date
+
 from api_coinmarketcap      import CoinMarketCapApi
 from api_coin_history       import CoinGeckoHistory
-from systems.schedulertimer import generate_schedule, TimerScheduler
+from systems.schedulertimer import generate_schedule, IntervalTimerScheduler
 from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim, is_between, multi_number_processing_to_str
-
-
 
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -36,24 +42,21 @@ _env = Environment()
 _db = dbApi( _setting.get_db_dbname(), _setting.get_db_user(), _setting.get_db_pass(), _setting.get_db_host(), _setting.get_db_port() )
 
 
-# LIMIT = _coinApi.get
-# TZ = _env.get_timeZone()
-
-# LIMIT = 44640 # лимит 2000/мес
-LIMIT = 10000 # лимит 2000/мес
-# TZ = 'UTC'  # можно 'America/New_York' или 'Europe/Berlin'
+# LIMIT задаётся ниже как сумма credit_limit_monthly по ключам false (fallback 10000).
+# Интервал фонового обновления цен (секунды, сетка в часовом поясе окружения).
+PRICE_REFRESH_INTERVAL_SEC = 30
 # LIMIT_MAX_MES = 3
 # AUTOUPDATE_CURRENCY=4 # hour
 
 
 TOKEN_TG = _setting.get_tgToken()
-TOKEN_COIN_MARKET = _setting.get_coinMarketCapToken()
+CMC_KEY_ENTRIES = _setting.get_coinmarketcap_key_entries()
 
 if TOKEN_TG == '':
     _logger.add_critical('No tg token!')
     sys.exit()
 
-if TOKEN_COIN_MARKET == '':
+if not CMC_KEY_ENTRIES:
     _logger.add_critical('No coinMarketCap token!')
     sys.exit()
 
@@ -63,7 +66,39 @@ if not _env.is_valid():
     _logger.add_critical('Environment is not corrected!')
     exit 
 
-_coinApi = CoinMarketCapApi( api_key=TOKEN_COIN_MARKET, default_convert="USD", cache_limit=200, verbose=True )
+_coinApi = CoinMarketCapApi(
+    key_entries=CMC_KEY_ENTRIES,
+    default_convert="USD",
+    cache_limit=200,
+    verbose=True,
+    read_api_key_from=_setting.get_path() + "configs/coinmarketcap.key",
+)
+
+_false_keys = [k for k, is_detail in CMC_KEY_ENTRIES if not is_detail]
+LIMIT = 10000
+if _false_keys:
+    _sum_limits = 0
+    for _k in _false_keys:
+        try:
+            _info = _coinApi.get_accaunt_info(_k)
+            _sum_limits += int(_info.credit_limit_monthly)
+        except Exception as _ex:
+            _logger.add_error(
+                "CMC key/info skip for key …{}: {}".format(_k[-6:], _ex)
+            )
+    if _sum_limits > 0:
+        LIMIT = _sum_limits
+else:
+    _sum_detail = 0
+    for _k, _d in CMC_KEY_ENTRIES:
+        if _d:
+            try:
+                _info = _coinApi.get_accaunt_info(_k)
+                _sum_detail += int(_info.credit_limit_monthly)
+            except Exception as _ex:
+                _logger.add_error("CMC key/info skip: {}".format(_ex))
+    if _sum_detail > 0:
+        LIMIT = _sum_detail
 # _coinApi.force_refresh()
 _coinHistoreApi =   CoinGeckoHistory()
 _time_zone_api =    TimeZone_api(           _db.get_time_zones() )
@@ -257,6 +292,7 @@ def debug_callback(call):
         get_currency(user, message_id)
 
     elif key == 'menu_premium':
+        _bot.answer_callback_query(call.id, text = '')
         premium_button(user, message_id)
 
     elif key == 'menu_support':
@@ -265,6 +301,7 @@ def debug_callback(call):
         markup = types.InlineKeyboardMarkup()
         markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_BACK'),                callback_data='menu') )
         send_text(_bot, chat_id, t_mes, reply_markup=markup, id_message_for_edit=message_id)
+        _db.increment_balance_mes(user.get_user_id())
 
     elif timezone_match:
         _bot.answer_callback_query(call.id, text = '')
@@ -502,7 +539,13 @@ def get_currency(user: User, message_id:int = -1):
 
 def premium_button(user: User, id_message_for_edit : int = 0):
     if _env.get_global_payment() :
-        send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'))
+        if id_message_for_edit <= 0:
+            markup = types.InlineKeyboardMarkup()
+            markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_MENU'),    callback_data='menu') )
+            send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'), reply_markup=markup)
+        else: 
+            _db.increment_balance_mes(user.get_user_id())
+            send_text(_bot, user.get_user_id(), _locale.find_translation(user.get_language(), 'TR_PAYMENT_SYSTEM_EMPTY'))
         return 
 
 
@@ -580,6 +623,7 @@ def premium_button(user: User, id_message_for_edit : int = 0):
     
     t_mes = _locale.find_translation(user.get_language(), 'TR_TARIFFS_MENU').format(text_tarifs)
     send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
+    _db.increment_balance_mes(user.get_user_id())
     if id_message_for_edit != 0:
         _bot.delete_message(user.get_user_id(), id_message_for_edit)
 
@@ -724,20 +768,42 @@ def main_menu(user: User, charId, id_message = None):
 
 
 if __name__ == "__main__":
-    _coinApi.parse_cmc_api_limits( _coinApi.get_cmc_api_limits() )
+    _days_in_m = monthrange(date.today().year, date.today().month)[1]
+    _limit_sched = max(1, int(LIMIT))
+    sched = generate_schedule(
+        limit_per_month=_limit_sched,
+        days_in_month=_days_in_m,
+        tz_out=_env.get_time_zone(),
+    )
 
-    sched = generate_schedule(limit_per_month=LIMIT, days_in_month=31, tz_out= _env.get_time_zone() )
-    times = sched['daily_times_flat']
-    window_indices = sched['daily_times_window_index']
+    print(
+        "CMC: false_keys=", len(_false_keys),
+        "LIMIT(monthly)=", LIMIT,
+        "days_in_month=", _days_in_m,
+    )
+    print("Daily requests (метрика бюджета):", sched['daily_requests'], "monthly_used:", sched['monthly_used'], "residual:", sched['residual_monthly'])
+    _tzn = _env.get_time_zone()
+    _ticks = int(86400 // PRICE_REFRESH_INTERVAL_SEC)
+    print(
+        "Интервал обновления цен:",
+        PRICE_REFRESH_INTERVAL_SEC,
+        "с, часовой пояс",
+        _tzn,
+        "(~",
+        _ticks,
+        "тиков/сутки по сетке)",
+    )
 
-    print("Daily requests:", sched['daily_requests'], "monthly_used:", sched['monthly_used'], "residual:", sched['residual_monthly'])
-    print("Times today sample (first 10):", times[:10])
-
-    scheduler = TimerScheduler(daily_times=times, daily_window_indices=window_indices, callback=on_get_price, tz_out=_env.get_time_zone(), name="MyScheduler")
+    scheduler = IntervalTimerScheduler(
+        interval_seconds=float(PRICE_REFRESH_INTERVAL_SEC),
+        callback=on_get_price,
+        tz_out=_tzn,
+        name="PriceRefreshInterval",
+    )
     scheduler.start(daemon=True)
 
     on_get_price(None)
-    
 
 
-_bot.infinity_polling()    
+# logger_level=None — не дублировать огромный traceback в лог telebot при сетевых сбоях (цикл retry 3 c уже внутри infinity_polling).
+_bot.infinity_polling(timeout=35, long_polling_timeout=30, logger_level=None)

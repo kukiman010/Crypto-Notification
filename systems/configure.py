@@ -1,5 +1,29 @@
 import configparser
 import os
+from typing import List, Tuple
+
+
+def parse_coinmarketcap_key_text(text: str) -> List[Tuple[str, bool]]:
+    """
+    Одна строка файла: «API_KEY true|false» (регистр флага не важен).
+    Строка без флага — ключ с is_detail=False (пул обновлений).
+    Пустые строкы и строки, начинающиеся с #, пропускаются.
+    """
+    out: List[Tuple[str, bool]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2 and parts[-1].lower() in ("true", "false"):
+            is_detail = parts[-1].lower() == "true"
+            api_key = " ".join(parts[:-1]).strip()
+        else:
+            api_key = line
+            is_detail = False
+        if api_key:
+            out.append((api_key, is_detail))
+    return out
 
 
 class Settings:
@@ -109,17 +133,17 @@ class Settings:
 
     # get chatgpt token
     def get_coinMarketCapToken(self):
-        TOKEN_COIN = ""
-        if not( os.path.exists(self.base_way + "configs/coinmarketcap.key") ):
-            file = open(self.base_way + "configs/coinmarketcap.key", 'w')
-            file.close()
-            return TOKEN_COIN
-        else:
-            file = open(self.base_way + "configs/coinmarketcap.key", 'r')
-            TOKEN_COIN = file.read()
-            file.close()
-            return TOKEN_COIN
-    
+        """Первый ключ из файла (совместимость со старым кодом)."""
+        entries = self.get_coinmarketcap_key_entries()
+        return entries[0][0] if entries else ""
+
+    def get_coinmarketcap_key_entries(self) -> List[Tuple[str, bool]]:
+        path = self.base_way + "configs/coinmarketcap.key"
+        if not os.path.exists(path):
+            return []
+        with open(path, "r", encoding="utf-8") as f:
+            return parse_coinmarketcap_key_text(f.read())
+
 
 
 

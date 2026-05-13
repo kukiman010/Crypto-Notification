@@ -1,2 +1,5 @@
 telebot
 matplotlib
+requests
+polib
+psycopg2-binary
