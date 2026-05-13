@@ -416,11 +416,16 @@ def balance_user(userId, automatically_call:bool = True):
 
     isNew = False
 
-    if user.get_count_post_balance_mes() >= _env.get_last_activity_autoupdate() :
-    # if user.get_count_post_balance_mes() >= LIMIT_MAX_MES :
-        isNew = True
-    elif user.get_last_balance_mes_id() == 0:
-        isNew = True
+    # Фоновое обновление: только при отсутствии id редактируемого сообщения шлём новое.
+    # Порог count_post_balance_mes здесь давал второй «главный экран» после нескольких callback'ов (см. логи verify).
+    if automatically_call:
+        if user.get_last_balance_mes_id() == 0:
+            isNew = True
+    else:
+        if user.get_count_post_balance_mes() >= _env.get_last_activity_autoupdate() :
+            isNew = True
+        elif user.get_last_balance_mes_id() == 0:
+            isNew = True
         
     last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
 
