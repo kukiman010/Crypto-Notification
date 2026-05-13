@@ -1,5 +1,6 @@
 import time
 import requests
+from telebot.apihelper import ApiTelegramException
 from decimal import Decimal, getcontext, localcontext, ROUND_DOWN
 from datetime import datetime, timezone, timedelta
 from systems.logger         import LoggerSingleton
@@ -47,6 +48,8 @@ def send_text(
     sent_message_id = None
 
     for i, chunk in enumerate(results):
+        edit_target_id = id_message_for_edit if (id_message_for_edit and i == 0) else None
+        attempted_edit = edit_target_id is not None
         try:
             # Если edit и первый чанк (здесь нельзя вставить фото)
             if id_message_for_edit and i == 0:
@@ -81,6 +84,15 @@ def send_text(
                     sent_message_id = msg.message_id
 
         except Exception as e:
+            if attempted_edit and isinstance(e, ApiTelegramException):
+                desc = ''
+                rj = getattr(e, 'result_json', None)
+                if isinstance(rj, dict):
+                    desc = str(rj.get('description', ''))
+                if 'message is not modified' in desc.lower() or 'message is not modified' in str(e).lower():
+                    sent_message_id = edit_target_id
+                    id_message_for_edit = None
+                    continue
             _logger.add_critical(
                 f"Ошибка для chat_id:{chat_id} при отправке сообщения. Ошибка: {e}\n В этом тексте: \n{chunk}"
             )
