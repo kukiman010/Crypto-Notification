@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: base
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./tools/data.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d base"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: crypto_notification
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./configs:/app/configs
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  pgdata:

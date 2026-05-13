@@ -1,0 +1,21 @@
+[Unit]
+Description=Crypto Notification Telegram Bot (Docker)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart=/usr/bin/docker start -a crypto_notification
+ExecStop=/usr/bin/docker stop crypto_notification
+
+[Install]
+WantedBy=multi-user.target
+
+# Установка: sudo cp deploy/crypto-notification.service /etc/systemd/system/
+#             sudo systemctl daemon-reload && sudo systemctl enable --now crypto-notification
+# Подготовка контейнера (один раз из корня репозитория):
+#   заполнить configs/telegram.key, configs/coinmarketcap.key, configs/db.conf (см. deploy/db.conf.docker.example)
+#   docker compose build && docker compose up --no-start

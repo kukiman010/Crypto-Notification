@@ -1,0 +1,14 @@
+.git
+.gitignore
+__pycache__
+*.py[cod]
+*.pyc
+.venv
+venv
+env
+configs/telegram.key
+configs/coinmarketcap.key
+configs/db.conf
+logs
+*.log
+deploy
