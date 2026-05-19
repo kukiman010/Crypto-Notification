@@ -1,4 +1,5 @@
 import time
+import threading
 import requests
 from telebot.apihelper import ApiTelegramException
 from decimal import Decimal, getcontext, localcontext, ROUND_DOWN
@@ -7,6 +8,24 @@ from systems.logger         import LoggerSingleton
 import xml.etree.ElementTree as ET
 
 _logger = LoggerSingleton.new_instance('logs/log_cripto_notify.log')
+
+# pyTelegramBotAPI не потокобезопасен: polling и фоновые треды обновления цен шлют в один _bot.
+telegram_api_lock = threading.Lock()
+
+_EDIT_RECOVER_ERRORS = (
+    'message to edit not found',
+    "message can't be edited",
+    'message_id_invalid',
+    'message to delete not found',
+)
+
+
+def _telegram_error_description(exc: Exception) -> str:
+    rj = getattr(exc, 'result_json', None)
+    if isinstance(rj, dict):
+        return str(rj.get('description', ''))
+    return str(exc)
+
 
 def get_time_string(self):
         current_time = time.time()
@@ -47,58 +66,73 @@ def send_text(
 
     sent_message_id = None
 
-    for i, chunk in enumerate(results):
-        edit_target_id = id_message_for_edit if (id_message_for_edit and i == 0) else None
-        attempted_edit = edit_target_id is not None
-        try:
-            # Если edit и первый чанк (здесь нельзя вставить фото)
-            if id_message_for_edit and i == 0:
-                msg = telegram_bot.edit_message_text(
-                    chat_id=chat_id, 
-                    message_id=id_message_for_edit, 
-                    text=chunk, 
-                    reply_markup=reply_markup
-                )
-                sent_message_id = msg.message_id
-                id_message_for_edit = None
-
-            elif photo is not None and i == 0:
-                # Первый чанк с фото!
-                msg = telegram_bot.send_photo(
-                    chat_id=chat_id,
-                    photo=photo,
-                    caption=photo_caption if photo_caption is not None else chunk,
-                    reply_markup=reply_markup
-                )
-                sent_message_id = msg.message_id
-                photo = None  # фото отправлено только 1 раз
-
-            else:
-                # Обычный текст
-                msg = telegram_bot.send_message(
-                    chat_id, 
-                    chunk, 
-                    reply_markup=reply_markup
-                )
-                if sent_message_id is None:
+    with telegram_api_lock:
+        for i, chunk in enumerate(results):
+            edit_target_id = id_message_for_edit if (id_message_for_edit and i == 0) else None
+            attempted_edit = edit_target_id is not None
+            try:
+                # Если edit и первый чанк (здесь нельзя вставить фото)
+                if id_message_for_edit and i == 0:
+                    msg = telegram_bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=id_message_for_edit,
+                        text=chunk,
+                        reply_markup=reply_markup
+                    )
                     sent_message_id = msg.message_id
-
-        except Exception as e:
-            if attempted_edit and isinstance(e, ApiTelegramException):
-                desc = ''
-                rj = getattr(e, 'result_json', None)
-                if isinstance(rj, dict):
-                    desc = str(rj.get('description', ''))
-                if 'message is not modified' in desc.lower() or 'message is not modified' in str(e).lower():
-                    sent_message_id = edit_target_id
                     id_message_for_edit = None
-                    continue
-            _logger.add_critical(
-                f"Ошибка для chat_id:{chat_id} при отправке сообщения. Ошибка: {e}\n В этом тексте: \n{chunk}"
-            )
-            msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
-            if sent_message_id is None:
-                sent_message_id = msg.message_id
+
+                elif photo is not None and i == 0:
+                    msg = telegram_bot.send_photo(
+                        chat_id=chat_id,
+                        photo=photo,
+                        caption=photo_caption if photo_caption is not None else chunk,
+                        reply_markup=reply_markup
+                    )
+                    sent_message_id = msg.message_id
+                    photo = None
+
+                else:
+                    msg = telegram_bot.send_message(
+                        chat_id,
+                        chunk,
+                        reply_markup=reply_markup
+                    )
+                    if sent_message_id is None:
+                        sent_message_id = msg.message_id
+
+            except Exception as e:
+                desc_lower = _telegram_error_description(e).lower()
+                if attempted_edit and isinstance(e, ApiTelegramException):
+                    if 'message is not modified' in desc_lower or 'message is not modified' in str(e).lower():
+                        sent_message_id = edit_target_id
+                        id_message_for_edit = None
+                        continue
+                    if any(err in desc_lower for err in _EDIT_RECOVER_ERRORS):
+                        _logger.add_warning(
+                            f"chat_id:{chat_id} — не удалось отредактировать msg {edit_target_id} "
+                            f"({desc_lower}), отправляем новое сообщение"
+                        )
+                        try:
+                            msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
+                            sent_message_id = msg.message_id
+                            id_message_for_edit = None
+                        except Exception as send_err:
+                            _logger.add_critical(
+                                f"chat_id:{chat_id} — повторная отправка после сбоя edit: {send_err}"
+                            )
+                        continue
+                _logger.add_critical(
+                    f"Ошибка для chat_id:{chat_id} при отправке сообщения. Ошибка: {e}\n В этом тексте: \n{chunk}"
+                )
+                try:
+                    msg = telegram_bot.send_message(chat_id, chunk, reply_markup=reply_markup)
+                    if sent_message_id is None:
+                        sent_message_id = msg.message_id
+                except Exception as send_err:
+                    _logger.add_critical(
+                        f"chat_id:{chat_id} — резервная отправка не удалась: {send_err}"
+                    )
 
     return sent_message_id
 

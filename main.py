@@ -32,7 +32,7 @@ from datetime import date
 from api_coinmarketcap      import CoinMarketCapApi
 from api_coin_history       import CoinGeckoHistory
 from systems.schedulertimer import generate_schedule, IntervalTimerScheduler
-from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim, is_between, multi_number_processing_to_str
+from tools.tools            import get_time_string, send_text, get_current_time_with_utc_offset, crypto_trim, is_between, multi_number_processing_to_str, telegram_api_lock
 
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -124,7 +124,10 @@ def on_update_users_price():
     user_ids =  _db.get_last_active_users()
 
     for id in user_ids:
-        balance_user(id)
+        try:
+            balance_user(id)
+        except Exception as ex:
+            _logger.add_error(f'on_update_users_price user {id}: {ex}')
 
 
 def on_check_notifications():
@@ -385,11 +388,20 @@ def handle_user_message(message):
 
 
 
-def balance_user(userId, automatically_call:bool = True):
-    user = user_verification_easy(userId) 
+def _normalize_balance_mes_id(raw) -> int:
+    if raw is None or raw == '':
+        return 0
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
 
-    # if not user.is_valid():
-        # return
+
+def balance_user(userId, automatically_call:bool = True):
+    user = user_verification_easy(userId)
+    if user is None:
+        _logger.add_warning(f'balance_user: пользователь {userId} не найден в БД')
+        return
 
     t_mes = _locale.find_translation(user.get_language(), 'TR_BALANCE_MES')
     pattern_coin = '1 /{} -> {} {} {}'
@@ -415,31 +427,40 @@ def balance_user(userId, automatically_call:bool = True):
         favorites = _locale.find_translation(user.get_language(), 'TR_NO_FAVORITES')
 
     isNew = False
+    balance_mes_id = _normalize_balance_mes_id(user.get_last_balance_mes_id())
 
     # Фоновое обновление: только при отсутствии id редактируемого сообщения шлём новое.
     # Порог count_post_balance_mes здесь давал второй «главный экран» после нескольких callback'ов (см. логи verify).
     if automatically_call:
-        if user.get_last_balance_mes_id() == 0:
+        if balance_mes_id == 0:
             isNew = True
     else:
-        if user.get_count_post_balance_mes() >= _env.get_last_activity_autoupdate() :
+        try:
+            post_count = int(user.get_count_post_balance_mes() or 0)
+        except (TypeError, ValueError):
+            post_count = 0
+        if post_count >= _env.get_last_activity_autoupdate():
             isNew = True
-        elif user.get_last_balance_mes_id() == 0:
+        elif balance_mes_id == 0:
             isNew = True
-        
+
     last_update_coin = get_current_time_with_utc_offset( user.get_code_time() )
 
     markup = types.InlineKeyboardMarkup()
     markup.add( types.InlineKeyboardButton(_locale.find_translation(user.get_language(), 'TR_FIND_COIN'),    callback_data='find_coin') )
 
-        
+    body = t_mes.format(coins_mes, favorites, last_update_coin)
+
     if isNew or automatically_call == False:
-        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), reply_markup=markup  )
+        message_id = send_text(_bot, userId, body, reply_markup=markup)
         _db.update_count_post_balance_mes(user.get_user_id(), 0)
     else:
-        message_id = send_text(_bot, userId, t_mes.format(coins_mes, favorites, last_update_coin), reply_markup=markup, id_message_for_edit = user.get_last_balance_mes_id() )
+        message_id = send_text(_bot, userId, body, reply_markup=markup, id_message_for_edit=balance_mes_id)
+        if message_id is None:
+            _db.update_last_balance_mes_id(userId, 0)
+            message_id = send_text(_bot, userId, body, reply_markup=markup)
 
-    if message_id != None:
+    if message_id is not None:
         _db.update_last_balance_mes_id(userId, message_id)
 
 
@@ -630,7 +651,17 @@ def premium_button(user: User, id_message_for_edit : int = 0):
     send_text(_bot, user.get_user_id(), t_mes, reply_markup=markup)
     _db.increment_balance_mes(user.get_user_id())
     if id_message_for_edit != 0:
-        _bot.delete_message(user.get_user_id(), id_message_for_edit)
+        balance_mes_id = _normalize_balance_mes_id(user.get_last_balance_mes_id())
+        with telegram_api_lock:
+            try:
+                _bot.delete_message(user.get_user_id(), id_message_for_edit)
+            except Exception as ex:
+                _logger.add_warning(
+                    f'premium_button: не удалось удалить msg {id_message_for_edit} '
+                    f'у user {user.get_user_id()}: {ex}'
+                )
+        if id_message_for_edit == balance_mes_id:
+            _db.update_last_balance_mes_id(user.get_user_id(), 0)
 
 
 
